@@ -1,0 +1,196 @@
+{
+  "rules": {
+    "users": {
+      ".read": "auth != null",
+      "$userId": {
+        ".write": "auth != null && (
+          root.child('users').child($userId).child('uid').val() === auth.uid ||
+          root.child('users').child(data.child('userId').val()).child('role').val() === 'admin'
+        )",
+        ".validate": "newData.hasChildren(['uid', 'userId', 'email', 'role', 'permissions', 'createdAt'])",
+        "uid": {
+          ".validate": "newData.isString()"
+        },
+        "userId": {
+          ".validate": "newData.isString() && newData.val() === $userId"
+        },
+        "email": {
+          ".validate": "newData.isString()"
+        },
+        "role": {
+          ".validate": "newData.val() === 'admin' || newData.val() === 'user'"
+        },
+        "permissions": {
+          ".validate": "newData.hasChildren(['canCreateRooms', 'canJoinRooms', 'canManageUsers', 'canDeleteRooms'])",
+          "canCreateRooms": {
+            ".validate": "newData.isBoolean()"
+          },
+          "canJoinRooms": {
+            ".validate": "newData.isBoolean()"
+          },
+          "canManageUsers": {
+            ".validate": "newData.isBoolean()"
+          },
+          "canDeleteRooms": {
+            ".validate": "newData.isBoolean()"
+          }
+        },
+        "createdAt": {
+          ".validate": "newData.isString()"
+        },
+        "lastLogin": {
+          ".validate": "newData.isString()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "rooms": {
+      ".read": "auth != null",
+      "$roomId": {
+        ".write": "auth != null && (
+          !data.exists() && root.child('users').child(newData.child('ownerId').val()).child('permissions').child('canCreateRooms').val() === true ||
+          data.child('ownerId').val() === newData.child('ownerId').val() ||
+          root.child('users').child(data.child('ownerId').val()).child('permissions').child('canDeleteRooms').val() === true
+        )",
+        ".validate": "newData.hasChildren(['id', 'name', 'code', 'ownerId', 'ownerName', 'maxPlayers', 'isPublished', 'isStarted', 'isCompleted', 'currentQuestionIndex', 'createdAt'])",
+        "id": {
+          ".validate": "newData.val() === $roomId && newData.isString()"
+        },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100"
+        },
+        "code": {
+          ".validate": "newData.isString() && newData.val().matches(/^[A-Z0-9]{6}$/)"
+        },
+        "ownerId": {
+          ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
+        },
+        "ownerName": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "maxPlayers": {
+          ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 100"
+        },
+        "questions": {
+          ".validate": "newData.val() === null || newData.val().length >= 0"
+        },
+        "isPublished": {
+          ".validate": "newData.isBoolean()"
+        },
+        "isStarted": {
+          ".validate": "newData.isBoolean()"
+        },
+        "isCompleted": {
+          ".validate": "newData.isBoolean()"
+        },
+        "currentQuestionIndex": {
+          ".validate": "newData.isNumber() && newData.val() >= -1"
+        },
+        "createdAt": {
+          ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "players": {
+      ".read": "auth != null",
+      "$playerId": {
+        ".write": "auth != null && (
+          !data.exists() && root.child('users').child(newData.child('userId').val()).child('permissions').child('canJoinRooms').val() === true ||
+          data.child('userId').val() === newData.child('userId').val() ||
+          root.child('rooms').child(data.child('roomId').val()).child('ownerId').val() === newData.child('userId').val()
+        )",
+        ".validate": "newData.hasChildren(['id', 'name', 'roomId', 'score', 'isReady', 'isOnline', 'joinedAt', 'userId'])",
+        "id": {
+          ".validate": "newData.val() === $playerId && newData.isString()"
+        },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 50"
+        },
+        "roomId": {
+          ".validate": "newData.isString() && root.child('rooms').child(newData.val()).exists()"
+        },
+        "score": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "isReady": {
+          ".validate": "newData.isBoolean()"
+        },
+        "isOnline": {
+          ".validate": "newData.isBoolean()"
+        },
+        "joinedAt": {
+          ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
+        },
+        "userId": {
+          ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "currentQuestions": {
+      ".read": "auth != null",
+      "$roomId": {
+        ".write": "auth != null && root.child('rooms').child($roomId).child('ownerId').val() === root.child('users').child(auth.uid).child('userId').val()",
+        ".validate": "newData.hasChildren(['question', 'basePoints', 'scoringMode', 'timeLimit', 'startedAt'])",
+        "question": {
+          ".validate": "newData.hasChildren(['id', 'text', 'type', 'correctAnswer'])"
+        },
+        "basePoints": {
+          ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 10000"
+        },
+        "scoringMode": {
+          ".validate": "newData.val() === 'time-based' || newData.val() === 'order-based' || newData.val() === 'first-only'"
+        },
+        "timeLimit": {
+          ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 300"
+        },
+        "startedAt": {
+          ".validate": "newData.isString()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "answers": {
+      ".read": "auth != null",
+      "$roomId": {
+        "$answerId": {
+          ".write": "auth != null && (
+            !data.exists() ||
+            root.child('rooms').child($roomId).child('ownerId').val() === root.child('users').child(auth.uid).child('userId').val()
+          )",
+          ".validate": "newData.hasChildren(['playerId', 'playerName', 'answer', 'timeTaken', 'isCorrect', 'pointsEarned'])",
+          "playerId": {
+            ".validate": "newData.isString() && root.child('players').child(newData.val()).exists()"
+          },
+          "playerName": {
+            ".validate": "newData.isString() && newData.val().length > 0"
+          },
+          "answer": {
+            ".validate": "newData.isString()"
+          },
+          "timeTaken": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "isCorrect": {
+            ".validate": "newData.isBoolean()"
+          },
+          "pointsEarned": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    }
+  }
+}

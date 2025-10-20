@@ -283,46 +283,32 @@ src/
 For production, update your Realtime Database rules:
 
 1. Go to Firebase Console → Realtime Database → Rules
-2. Replace the existing rules with:
+2. Copy the contents of `database.rules.json` from this repository
+3. Paste them into the Firebase Console rules editor
+4. Click "Publish"
+
+**Key Security Features:**
+- ✅ **Authentication Required**: All read/write operations require user authentication
+- ✅ **Permission-Based Access**: Users must have appropriate permissions (canCreateRooms, canJoinRooms, etc.)
+- ✅ **Ownership Validation**: Only room owners can modify their rooms
+- ✅ **Data Validation**: Strict validation of data types, required fields, and value ranges
+- ✅ **No Unauthorized Fields**: Additional fields beyond the schema are rejected
+- ✅ **Immutable Fields**: Critical fields like IDs, creation dates, and ownership can't be changed
+
+**Quick Test Mode (Development Only):**
+
+For initial testing, you can use these simplified rules (⚠️ NOT for production):
 
 ```json
 {
   "rules": {
-    "users": {
-      ".read": "auth != null",
-      "$userId": {
-        ".write": "auth != null"
-      }
-    },
-    "rooms": {
-      ".read": "auth != null",
-      "$roomId": {
-        ".write": "auth != null"
-      }
-    },
-    "players": {
-      ".read": "auth != null",
-      "$playerId": {
-        ".write": "auth != null"
-      }
-    },
-    "currentQuestions": {
-      ".read": "auth != null",
-      "$roomId": {
-        ".write": "auth != null"
-      }
-    },
-    "answers": {
-      ".read": "auth != null",
-      "$roomId": {
-        ".write": "auth != null"
-      }
-    }
+    ".read": "auth != null",
+    ".write": "auth != null"
   }
 }
 ```
 
-3. Click "Publish"
+⚠️ **Important**: Replace with production rules from `database.rules.json` before going live!
 
 ## 🛠️ Tech Stack
 

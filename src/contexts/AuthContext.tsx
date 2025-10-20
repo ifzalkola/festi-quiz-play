@@ -85,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           userId: 'ifzalkola',
           email: 'admin@quiz.app',
           role: 'admin',
-          permissions: defaultAdminPermissions,
+          permissions: defaultPermissions,
           createdAt: new Date().toISOString(),
           // In production, you should set this up through Firebase console or Admin SDK
           // For local development, the password should be: admin123
