@@ -37,11 +37,11 @@ const Index = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
-              <Button size="lg" variant="hero" className="group">
+              <Button size="lg" variant="hero" className="group" onClick={() => window.location.href = '/create'}>
                 <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
                 Create a Quiz Room
               </Button>
-              <Button size="lg" variant="outline">
+              <Button size="lg" variant="outline" onClick={() => window.location.href = '/join'}>
                 Join with Code
               </Button>
             </div>
@@ -159,12 +159,12 @@ const Index = () => {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button size="lg" variant="hero">
+            <Button size="lg" variant="hero" onClick={() => window.location.href = '/create'}>
               <Sparkles className="w-5 h-5 mr-2" />
               Start Creating
             </Button>
-            <Button size="lg" variant="outline">
-              View Demo
+            <Button size="lg" variant="outline" onClick={() => window.location.href = '/join'}>
+              Join a Quiz
             </Button>
           </div>
         </div>
