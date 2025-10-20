@@ -58,7 +58,10 @@ root/
 
 **Path**: `/users/{userId}`
 
-**Read Access**: Any authenticated user can read all users
+**Read Access**: 
+- **Open read access** (no authentication required)
+- ⚠️ **Security Note**: This allows the login flow to read user emails before authentication
+- Alternative: Require users to login with email instead of userId to avoid this
 
 **Write Access**: 
 - Users can update their own profile (matching `uid`)
@@ -66,11 +69,41 @@ root/
 
 **Rules**:
 ```json
+".read": true,  // Required for login flow (userId → email lookup)
 ".write": "auth != null && (
   root.child('users').child($userId).child('uid').val() === auth.uid ||
   root.child('users').child(data.child('userId').val()).child('role').val() === 'admin'
 )"
 ```
+
+**Security Trade-off**: 
+- ✅ **Pros**: Allows userId-based login (better UX)
+- ⚠️ **Cons**: User emails and roles are publicly readable
+- 🔒 **Mitigation**: Write access is fully protected, preventing unauthorized changes
+
+**More Secure Alternative** (requires code changes):
+
+If you need to protect user emails, modify the login to use email directly:
+
+```json
+"users": {
+  ".read": "auth != null",  // Require authentication for reads
+  "$userId": {
+    ".write": "auth != null && ..."
+  }
+}
+```
+
+Then update `src/contexts/AuthContext.tsx` to accept email instead of userId:
+
+```typescript
+const signIn = async (email: string, password: string) => {
+  // Sign in directly with email, no database lookup needed
+  await signInWithEmailAndPassword(auth, email, password);
+};
+```
+
+This eliminates the pre-authentication database read.
 
 **Required Fields**:
 - `uid` (string) - Firebase Authentication UID

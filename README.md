@@ -280,7 +280,28 @@ src/
 
 ## 🔐 Firebase Security Rules
 
-For production, update your Realtime Database rules:
+### Quick Start (Development/Testing)
+
+For initial setup and testing, use the simplified rules:
+
+1. Go to Firebase Console → Realtime Database → Rules
+2. Copy the contents of `database.rules.simple.json` from this repository
+3. Paste them into the Firebase Console rules editor
+4. Click "Publish"
+
+**These simple rules:**
+```json
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null"
+  }
+}
+```
+
+### Production Security Rules
+
+For production deployment, use the comprehensive rules:
 
 1. Go to Firebase Console → Realtime Database → Rules
 2. Copy the contents of `database.rules.json` from this repository
@@ -295,20 +316,9 @@ For production, update your Realtime Database rules:
 - ✅ **No Unauthorized Fields**: Additional fields beyond the schema are rejected
 - ✅ **Immutable Fields**: Critical fields like IDs, creation dates, and ownership can't be changed
 
-**Quick Test Mode (Development Only):**
+**📖 See `FIREBASE_SECURITY_RULES.md` for complete documentation**
 
-For initial testing, you can use these simplified rules (⚠️ NOT for production):
-
-```json
-{
-  "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null"
-  }
-}
-```
-
-⚠️ **Important**: Replace with production rules from `database.rules.json` before going live!
+⚠️ **Important**: The production rules allow public read access to the users collection to enable the userId-based login flow. See the security documentation for details and alternatives.
 
 ## 🛠️ Tech Stack
 
@@ -332,10 +342,14 @@ For initial testing, you can use these simplified rules (⚠️ NOT for producti
 ## 🐛 Troubleshooting
 
 ### Authentication Issues
+- **"Permission denied" during login**: 
+  - Make sure you've deployed the security rules from `database.rules.json`
+  - The users collection needs read access for the login flow
+  - Verify the rules in Firebase Console → Realtime Database → Rules
 - **"User not found"**: Ensure user exists in both Firebase Auth and Database with matching email
-- **"Permission denied"**: All users are admin, check Firebase security rules
 - **Cannot login**: Verify the user exists in Firebase Authentication
 - **Database UID mismatch**: Make sure the `uid` in database matches the UID in Firebase Auth
+- **Incorrect credentials**: Double-check the userId and password are correct
 
 ### Firebase Connection Issues
 - Verify all environment variables are set correctly
