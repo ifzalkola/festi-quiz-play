@@ -1,0 +1,169 @@
+{
+  "rules": {
+    "users": {
+      ".read": "auth != null",
+      ".indexOn": ["email", "role"],
+      "$userId": {
+        ".write": "auth != null && (root.child('users/' + auth.uid.replace(/[^a-zA-Z0-9]/g, '_')).child('role').val() === 'admin' || $userId === auth.uid.replace(/[^a-zA-Z0-9]/g, '_'))",
+        ".validate": "newData.hasChildren(['uid', 'userId', 'email', 'role', 'permissions', 'createdAt'])",
+        "uid": {
+          ".validate": "newData.isString()"
+        },
+        "userId": {
+          ".validate": "newData.isString() && newData.val() === $userId"
+        },
+        "email": {
+          ".validate": "newData.isString() && newData.val().matches(/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$/i)"
+        },
+        "role": {
+          ".validate": "newData.val() === 'admin' || newData.val() === 'user'"
+        },
+        "permissions": {
+          ".validate": "newData.hasChildren(['canCreateRooms', 'canJoinRooms', 'canManageUsers', 'canDeleteRooms'])",
+          "canCreateRooms": {
+            ".validate": "newData.isBoolean()"
+          },
+          "canJoinRooms": {
+            ".validate": "newData.isBoolean()"
+          },
+          "canManageUsers": {
+            ".validate": "newData.isBoolean()"
+          },
+          "canDeleteRooms": {
+            ".validate": "newData.isBoolean()"
+          }
+        },
+        "createdAt": {
+          ".validate": "newData.isString()"
+        },
+        "lastLogin": {
+          ".validate": "newData.isString()"
+        }
+      }
+    },
+    "rooms": {
+      ".read": "auth != null",
+      ".indexOn": ["code", "ownerId", "isPublished"],
+      "$roomId": {
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['id', 'name', 'code', 'ownerId', 'ownerName', 'maxPlayers', 'isPublished', 'isStarted', 'isCompleted', 'currentQuestionIndex', 'createdAt'])",
+        "id": {
+          ".validate": "newData.isString()"
+        },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100"
+        },
+        "code": {
+          ".validate": "newData.isString() && newData.val().length === 6"
+        },
+        "ownerId": {
+          ".validate": "newData.isString()"
+        },
+        "ownerName": {
+          ".validate": "newData.isString()"
+        },
+        "maxPlayers": {
+          ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 1000"
+        },
+        "questions": {
+          ".validate": "newData.hasChildren()"
+        },
+        "isPublished": {
+          ".validate": "newData.isBoolean()"
+        },
+        "isStarted": {
+          ".validate": "newData.isBoolean()"
+        },
+        "isCompleted": {
+          ".validate": "newData.isBoolean()"
+        },
+        "currentQuestionIndex": {
+          ".validate": "newData.isNumber()"
+        },
+        "createdAt": {
+          ".validate": "newData.isString()"
+        }
+      }
+    },
+    "players": {
+      ".read": "auth != null",
+      ".indexOn": ["roomId", "userId", "isOnline"],
+      "$playerId": {
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['id', 'name', 'roomId', 'score', 'isReady', 'isOnline', 'joinedAt', 'userId'])",
+        "id": {
+          ".validate": "newData.isString()"
+        },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 50"
+        },
+        "roomId": {
+          ".validate": "newData.isString()"
+        },
+        "score": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "isReady": {
+          ".validate": "newData.isBoolean()"
+        },
+        "isOnline": {
+          ".validate": "newData.isBoolean()"
+        },
+        "joinedAt": {
+          ".validate": "newData.isString()"
+        },
+        "userId": {
+          ".validate": "newData.isString()"
+        }
+      }
+    },
+    "currentQuestions": {
+      ".read": "auth != null",
+      "$roomId": {
+        ".write": "auth != null",
+        "question": {
+          ".validate": "newData.hasChildren(['id', 'text', 'type', 'correctAnswer'])"
+        },
+        "basePoints": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "scoringMode": {
+          ".validate": "newData.val() === 'time-based' || newData.val() === 'order-based' || newData.val() === 'first-only'"
+        },
+        "timeLimit": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "startedAt": {
+          ".validate": "newData.isString()"
+        }
+      }
+    },
+    "answers": {
+      ".read": "auth != null",
+      "$roomId": {
+        ".write": "auth != null",
+        "$answerId": {
+          ".validate": "newData.hasChildren(['playerId', 'playerName', 'answer', 'timeTaken', 'isCorrect', 'pointsEarned'])",
+          "playerId": {
+            ".validate": "newData.isString()"
+          },
+          "playerName": {
+            ".validate": "newData.isString()"
+          },
+          "answer": {
+            ".validate": "newData.isString()"
+          },
+          "timeTaken": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "isCorrect": {
+            ".validate": "newData.isBoolean()"
+          },
+          "pointsEarned": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          }
+        }
+      }
+    }
+  }
+}

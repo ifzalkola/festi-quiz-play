@@ -1,0 +1,312 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { auth, database } from '@/lib/firebase';
+import { 
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { ref, get, set, update } from 'firebase/database';
+
+// User roles and permissions
+export type UserRole = 'admin' | 'user';
+
+export interface Permission {
+  canCreateRooms: boolean;
+  canJoinRooms: boolean;
+  canManageUsers: boolean;
+  canDeleteRooms: boolean;
+}
+
+export interface AppUser {
+  uid: string;
+  userId: string; // Custom user ID like "ifzalkola"
+  email: string;
+  role: UserRole;
+  permissions: Permission;
+  createdAt: string;
+  lastLogin?: string;
+}
+
+interface AuthContextType {
+  currentUser: AppUser | null;
+  firebaseUser: FirebaseUser | null;
+  loading: boolean;
+  signIn: (userId: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  createUser: (userId: string, email: string, password: string, role: UserRole, permissions?: Partial<Permission>) => Promise<void>;
+  updateUserPermissions: (userId: string, permissions: Partial<Permission>) => Promise<void>;
+  deleteUser: (userId: string) => Promise<void>;
+  getAllUsers: () => Promise<AppUser[]>;
+  hasPermission: (permission: keyof Permission) => boolean;
+  isAdmin: () => boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return context;
+};
+
+const defaultAdminPermissions: Permission = {
+  canCreateRooms: true,
+  canJoinRooms: true,
+  canManageUsers: true,
+  canDeleteRooms: true,
+};
+
+const defaultUserPermissions: Permission = {
+  canCreateRooms: true,
+  canJoinRooms: true,
+  canManageUsers: false,
+  canDeleteRooms: false,
+};
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Initialize default admin user
+  const initializeDefaultAdmin = async () => {
+    try {
+      const usersRef = ref(database, 'users');
+      const snapshot = await get(usersRef);
+      
+      // Check if any users exist
+      if (!snapshot.exists()) {
+        console.log('No users found. Creating default admin...');
+        
+        // Create default admin in auth and database
+        // Note: This should be done through Firebase Admin SDK in production
+        // For now, we'll just create the user entry in database
+        const defaultAdminRef = ref(database, 'users/ifzalkola');
+        await set(defaultAdminRef, {
+          uid: 'admin_default', // This would be the Firebase Auth UID
+          userId: 'ifzalkola',
+          email: 'admin@quiz.app',
+          role: 'admin',
+          permissions: defaultAdminPermissions,
+          createdAt: new Date().toISOString(),
+          // In production, you should set this up through Firebase console or Admin SDK
+          // For local development, the password should be: admin123
+        });
+        
+        console.log('Default admin user created with userId: ifzalkola');
+      }
+    } catch (error) {
+      console.error('Error initializing default admin:', error);
+    }
+  };
+
+  useEffect(() => {
+    initializeDefaultAdmin();
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setFirebaseUser(firebaseUser);
+      
+      if (firebaseUser) {
+        try {
+          // Fetch user data from database
+          const usersRef = ref(database, 'users');
+          const snapshot = await get(usersRef);
+          
+          if (snapshot.exists()) {
+            const users = snapshot.val() as Record<string, AppUser>;
+            const userData = Object.values(users).find(u => u.uid === firebaseUser.uid);
+            
+            if (userData) {
+              // Update last login
+              const userRef = ref(database, `users/${userData.userId}`);
+              await update(userRef, { lastLogin: new Date().toISOString() });
+              
+              setCurrentUser(userData);
+            } else {
+              console.error('User data not found in database');
+              setCurrentUser(null);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          setCurrentUser(null);
+        }
+      } else {
+        setCurrentUser(null);
+      }
+      
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const signIn = async (userId: string, password: string) => {
+    try {
+      // First, get the email associated with this userId
+      const userRef = ref(database, `users/${userId}`);
+      const snapshot = await get(userRef);
+      
+      if (!snapshot.exists()) {
+        throw new Error('User not found');
+      }
+      
+      const userData = snapshot.val() as AppUser;
+      
+      // Sign in with email and password
+      await signInWithEmailAndPassword(auth, userData.email, password);
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      throw new Error(error.message || 'Failed to sign in');
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+      setCurrentUser(null);
+    } catch (error: any) {
+      console.error('Sign out error:', error);
+      throw new Error(error.message || 'Failed to sign out');
+    }
+  };
+
+  const createUser = async (
+    userId: string,
+    email: string,
+    password: string,
+    role: UserRole,
+    permissions?: Partial<Permission>
+  ) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      throw new Error('Only admins can create users');
+    }
+
+    try {
+      // Check if userId already exists
+      const userRef = ref(database, `users/${userId}`);
+      const snapshot = await get(userRef);
+      
+      if (snapshot.exists()) {
+        throw new Error('User ID already exists');
+      }
+
+      // Note: In production, this should use Firebase Admin SDK to create the auth user
+      // For now, we'll create the user entry in the database
+      // The actual Firebase Auth user should be created separately
+      
+      const fullPermissions: Permission = {
+        ...(role === 'admin' ? defaultAdminPermissions : defaultUserPermissions),
+        ...permissions,
+      };
+
+      const newUser: AppUser = {
+        uid: `user_${Date.now()}`, // Placeholder - should be Firebase Auth UID
+        userId,
+        email,
+        role,
+        permissions: fullPermissions,
+        createdAt: new Date().toISOString(),
+      };
+
+      await set(userRef, newUser);
+      
+      console.log(`User created: ${userId}. Please create corresponding Firebase Auth user with this email: ${email}`);
+    } catch (error: any) {
+      console.error('Create user error:', error);
+      throw new Error(error.message || 'Failed to create user');
+    }
+  };
+
+  const updateUserPermissions = async (userId: string, permissions: Partial<Permission>) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      throw new Error('Only admins can update permissions');
+    }
+
+    try {
+      const userRef = ref(database, `users/${userId}`);
+      const snapshot = await get(userRef);
+      
+      if (!snapshot.exists()) {
+        throw new Error('User not found');
+      }
+
+      const userData = snapshot.val() as AppUser;
+      const updatedPermissions = { ...userData.permissions, ...permissions };
+
+      await update(userRef, { permissions: updatedPermissions });
+    } catch (error: any) {
+      console.error('Update permissions error:', error);
+      throw new Error(error.message || 'Failed to update permissions');
+    }
+  };
+
+  const deleteUser = async (userId: string) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      throw new Error('Only admins can delete users');
+    }
+
+    if (userId === 'ifzalkola') {
+      throw new Error('Cannot delete the default admin user');
+    }
+
+    try {
+      const userRef = ref(database, `users/${userId}`);
+      await set(userRef, null); // Remove user from database
+      
+      // Note: In production, should also delete from Firebase Auth using Admin SDK
+      console.log(`User ${userId} deleted from database. Please also remove from Firebase Auth.`);
+    } catch (error: any) {
+      console.error('Delete user error:', error);
+      throw new Error(error.message || 'Failed to delete user');
+    }
+  };
+
+  const getAllUsers = async (): Promise<AppUser[]> => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      throw new Error('Only admins can view all users');
+    }
+
+    try {
+      const usersRef = ref(database, 'users');
+      const snapshot = await get(usersRef);
+      
+      if (!snapshot.exists()) {
+        return [];
+      }
+
+      return Object.values(snapshot.val() as Record<string, AppUser>);
+    } catch (error: any) {
+      console.error('Get users error:', error);
+      throw new Error(error.message || 'Failed to fetch users');
+    }
+  };
+
+  const hasPermission = (permission: keyof Permission): boolean => {
+    if (!currentUser) return false;
+    return currentUser.permissions[permission] === true;
+  };
+
+  const isAdmin = (): boolean => {
+    return currentUser?.role === 'admin';
+  };
+
+  const value: AuthContextType = {
+    currentUser,
+    firebaseUser,
+    loading,
+    signIn,
+    signOut,
+    createUser,
+    updateUserPermissions,
+    deleteUser,
+    getAllUsers,
+    hasPermission,
+    isAdmin,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
