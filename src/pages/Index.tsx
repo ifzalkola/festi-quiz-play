@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   Sparkles, 
   Users, 
@@ -9,14 +10,52 @@ import {
   Clock, 
   Target,
   Crown,
-  Play
+  Play,
+  Shield,
+  LogOut
 } from "lucide-react";
+import { toast } from "sonner";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { currentUser, isAdmin, signOut } = useAuth();
+  
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to sign out');
+    }
+  };
   
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      {/* Header */}
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-16 items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-6 w-6 text-primary" />
+            <span className="font-bold text-xl">Quiz Platform</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-muted-foreground">
+              Welcome, <span className="font-semibold text-foreground">{currentUser?.userId}</span>
+            </div>
+            {isAdmin() && (
+              <Button variant="outline" size="sm" onClick={() => navigate('/admin')}>
+                <Shield className="h-4 w-4 mr-2" />
+                Admin Panel
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </header>
+      
       {/* Hero Section */}
       <section className="relative overflow-hidden py-20 px-4 sm:px-6 lg:px-8">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />

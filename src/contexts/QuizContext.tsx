@@ -9,6 +9,7 @@ import {
   remove,
   get
 } from 'firebase/database';
+import { useAuth } from './AuthContext';
 
 // Firebase data types
 interface FirebaseRoom {
@@ -131,26 +132,18 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<CurrentQuestion | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-
-  // Generate a unique user ID on mount
-  useEffect(() => {
-    const storedUserId = localStorage.getItem('quiz_user_id');
-    if (storedUserId) {
-      setCurrentUserId(storedUserId);
-    } else {
-      const newUserId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      localStorage.setItem('quiz_user_id', newUserId);
-      setCurrentUserId(newUserId);
-    }
-  }, []);
+  const { currentUser, hasPermission } = useAuth();
+  
+  // Use authenticated user's userId
+  const currentUserId = currentUser?.userId || null;
 
   const generateRoomCode = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   };
 
   const createRoom = async (name: string, ownerName: string, maxPlayers: number): Promise<string> => {
-    if (!currentUserId) throw new Error('User ID not initialized');
+    if (!currentUserId) throw new Error('User not authenticated');
+    if (!hasPermission('canCreateRooms')) throw new Error('You do not have permission to create rooms');
     
     const roomRef = push(ref(database, 'rooms'));
     const roomId = roomRef.key!;
@@ -175,7 +168,8 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const joinRoom = async (code: string, playerName: string): Promise<void> => {
-    if (!currentUserId) throw new Error('User ID not initialized');
+    if (!currentUserId) throw new Error('User not authenticated');
+    if (!hasPermission('canJoinRooms')) throw new Error('You do not have permission to join rooms');
     
     // Find room by code
     const roomsRef = ref(database, 'rooms');
