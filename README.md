@@ -6,13 +6,50 @@ A real-time multiplayer quiz application with Firebase backend and GitHub Pages 
 
 ## ✨ Features
 
-- 🎮 **Create & Join Rooms** - Host creates quiz rooms with unique codes, players join instantly
-- 📝 **Multiple Question Types** - Support for True/False, Multiple Choice, and Text Input
-- 🏆 **Advanced Scoring** - Three scoring modes: Time-based, Order-based, and First-only
-- 👥 **Real-time Updates** - Live player tracking, instant score updates via Firebase
-- 🔥 **Firebase Integration** - Realtime Database for instant synchronization
+### Core Functionality
+- 🎮 **Create & Join Rooms** - Host creates quiz rooms with unique 6-character codes, players join instantly
+- 📝 **Multiple Question Types** - True/False, Multiple Choice, and Text Input questions
+- 🏆 **Advanced Scoring** - Three modes: Time-based, Order-based, and First-only
+- 👥 **Real-time Updates** - Live player tracking, instant score updates via Firebase Realtime Database
+- 🔥 **Firebase Integration** - Fully integrated with real-time synchronization (no mock code)
 - 📱 **Responsive Design** - Beautiful UI with Tailwind CSS and shadcn/ui components
 - 🚀 **Auto Deployment** - GitHub Actions workflow for seamless GitHub Pages deployment
+
+### Complete Pages (9)
+1. **Home** - Landing page with features showcase
+2. **Create Room** - Host creates quiz rooms
+3. **Join Room** - Players join with codes
+4. **Room Dashboard** - Host manages questions before quiz
+5. **Player Lobby** - Players wait for quiz to start
+6. **Quiz Control** - Host controls live quiz session
+7. **Play Quiz** - Players answer questions in real-time
+8. **Leaderboard** - Final results with confetti celebration
+9. **404 Page** - Custom not found page
+
+### Host Features
+- ✅ Create quiz rooms with custom settings
+- ✅ Add/edit/delete questions
+- ✅ Publish rooms to allow joins
+- ✅ Control live quiz flow
+- ✅ Publish questions one by one
+- ✅ Configure points, time limits, and scoring modes per question
+- ✅ See live answers from all players
+- ✅ Real-time statistics and leaderboard
+- ✅ Manual quiz ending
+
+### Player Features
+- ✅ Join rooms with simple codes
+- ✅ Wait in lobby with other players
+- ✅ Auto-redirect when quiz starts
+- ✅ Answer questions with timer
+- ✅ Real-time feedback on submissions
+- ✅ See final rankings and scores
+- ✅ Share results
+
+### Scoring Modes
+1. **Time-based** - Faster answers earn more points
+2. **Order-based** - 1st/2nd/3rd place get different point multipliers
+3. **First-only** - Only the first correct answer earns points
 
 ## 🚀 Quick Start
 
