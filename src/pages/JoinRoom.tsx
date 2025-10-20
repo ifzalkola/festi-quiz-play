@@ -28,8 +28,9 @@ const JoinRoom = () => {
       await joinRoom(roomCode.toUpperCase(), playerName);
       toast.success('Joined room successfully!');
       navigate(`/lobby`);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to join room');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to join room';
+      toast.error(errorMessage);
       console.error(error);
     } finally {
       setIsLoading(false);
