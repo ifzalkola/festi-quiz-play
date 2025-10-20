@@ -1,9 +1,41 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { database } from '@/lib/firebase';
+import { 
+  ref, 
+  onValue, 
+  set, 
+  update, 
+  push, 
+  remove,
+  get
+} from 'firebase/database';
 
-// Firebase imports (uncomment when ready to integrate)
-// import { initializeApp } from 'firebase/app';
-// import { getFirestore, collection, doc, onSnapshot, updateDoc, addDoc } from 'firebase/firestore';
-// import { getDatabase, ref, onValue, set, push } from 'firebase/database';
+// Firebase data types
+interface FirebaseRoom {
+  id: string;
+  name: string;
+  code: string;
+  ownerId: string;
+  ownerName: string;
+  maxPlayers: number;
+  questions: Question[];
+  isPublished: boolean;
+  isStarted: boolean;
+  isCompleted: boolean;
+  currentQuestionIndex: number;
+  createdAt: string;
+}
+
+interface FirebasePlayer {
+  id: string;
+  name: string;
+  roomId: string;
+  score: number;
+  isReady: boolean;
+  isOnline: boolean;
+  joinedAt: string;
+  userId: string;
+}
 
 // Types
 export type QuestionType = 'true-false' | 'multiple-choice' | 'text-input';
@@ -66,6 +98,7 @@ interface QuizContextType {
   players: Player[];
   currentQuestion: CurrentQuestion | null;
   answers: Answer[];
+  currentUserId: string | null;
   
   // Actions
   createRoom: (name: string, ownerName: string, maxPlayers: number) => Promise<string>;
@@ -93,60 +126,40 @@ export const useQuiz = () => {
   return context;
 };
 
-// Mock data for development
-const MOCK_ROOMS: QuizRoom[] = [];
-const MOCK_PLAYERS: Player[] = [];
-
 export const QuizProvider = ({ children }: { children: ReactNode }) => {
   const [currentRoom, setCurrentRoom] = useState<QuizRoom | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<CurrentQuestion | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Firebase initialization (uncomment when ready)
-  // useEffect(() => {
-  //   const firebaseConfig = {
-  //     apiKey: "YOUR_API_KEY",
-  //     authDomain: "YOUR_AUTH_DOMAIN",
-  //     databaseURL: "YOUR_DATABASE_URL",
-  //     projectId: "YOUR_PROJECT_ID",
-  //     storageBucket: "YOUR_STORAGE_BUCKET",
-  //     messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  //     appId: "YOUR_APP_ID"
-  //   };
-  //   const app = initializeApp(firebaseConfig);
-  //   const db = getFirestore(app);
-  //   const rtdb = getDatabase(app);
-  // }, []);
+  // Generate a unique user ID on mount
+  useEffect(() => {
+    const storedUserId = localStorage.getItem('quiz_user_id');
+    if (storedUserId) {
+      setCurrentUserId(storedUserId);
+    } else {
+      const newUserId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      localStorage.setItem('quiz_user_id', newUserId);
+      setCurrentUserId(newUserId);
+    }
+  }, []);
 
   const generateRoomCode = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   };
 
   const createRoom = async (name: string, ownerName: string, maxPlayers: number): Promise<string> => {
-    // Firebase implementation (uncomment when ready)
-    // const roomRef = await addDoc(collection(db, 'rooms'), {
-    //   name,
-    //   code: generateRoomCode(),
-    //   ownerId: 'current-user-id', // Get from auth
-    //   ownerName,
-    //   maxPlayers,
-    //   questions: [],
-    //   isPublished: false,
-    //   isStarted: false,
-    //   isCompleted: false,
-    //   currentQuestionIndex: -1,
-    //   createdAt: new Date()
-    // });
-    // return roomRef.id;
-
-    // Mock implementation
-    const roomId = `room_${Date.now()}`;
-    const newRoom: QuizRoom = {
+    if (!currentUserId) throw new Error('User ID not initialized');
+    
+    const roomRef = push(ref(database, 'rooms'));
+    const roomId = roomRef.key!;
+    
+    const newRoom = {
       id: roomId,
       name,
       code: generateRoomCode(),
-      ownerId: 'mock_owner',
+      ownerId: currentUserId,
       ownerName,
       maxPlayers,
       questions: [],
@@ -154,97 +167,137 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       isStarted: false,
       isCompleted: false,
       currentQuestionIndex: -1,
-      createdAt: new Date()
+      createdAt: new Date().toISOString()
     };
-    MOCK_ROOMS.push(newRoom);
-    setCurrentRoom(newRoom);
+    
+    await set(roomRef, newRoom);
     return roomId;
   };
 
   const joinRoom = async (code: string, playerName: string): Promise<void> => {
-    // Firebase implementation (uncomment when ready)
-    // const roomQuery = query(collection(db, 'rooms'), where('code', '==', code));
-    // const roomSnapshot = await getDocs(roomQuery);
-    // if (roomSnapshot.empty) throw new Error('Room not found');
-    // const room = roomSnapshot.docs[0];
-    // await addDoc(collection(db, 'players'), {
-    //   name: playerName,
-    //   roomId: room.id,
-    //   score: 0,
-    //   isReady: false,
-    //   isOnline: true,
-    //   joinedAt: new Date()
-    // });
-
-    // Mock implementation
-    const room = MOCK_ROOMS.find(r => r.code === code);
-    if (!room) throw new Error('Room not found');
-    if (!room.isPublished) throw new Error('Room not published yet');
-    if (room.isStarted) throw new Error('Quiz already started');
+    if (!currentUserId) throw new Error('User ID not initialized');
     
-    const playerId = `player_${Date.now()}`;
-    const newPlayer: Player = {
+    // Find room by code
+    const roomsRef = ref(database, 'rooms');
+    const snapshot = await get(roomsRef);
+    
+    let foundRoom: FirebaseRoom | null = null;
+    let foundRoomId: string | null = null;
+    
+    if (snapshot.exists()) {
+      const rooms = snapshot.val() as Record<string, FirebaseRoom>;
+      for (const [roomId, room] of Object.entries(rooms)) {
+        if (room.code === code) {
+          foundRoom = room;
+          foundRoomId = roomId;
+          break;
+        }
+      }
+    }
+    
+    if (!foundRoom || !foundRoomId) throw new Error('Room not found');
+    if (!foundRoom.isPublished) throw new Error('Room not published yet');
+    if (foundRoom.isStarted) throw new Error('Quiz already started');
+    
+    // Check player count
+    const playersRef = ref(database, 'players');
+    const playersSnapshot = await get(playersRef);
+    let currentPlayerCount = 0;
+    
+    if (playersSnapshot.exists()) {
+      const allPlayers = playersSnapshot.val() as Record<string, FirebasePlayer>;
+      currentPlayerCount = Object.values(allPlayers).filter(
+        (p) => p.roomId === foundRoomId && p.isOnline
+      ).length;
+    }
+    
+    if (currentPlayerCount >= foundRoom.maxPlayers) {
+      throw new Error('Room is full');
+    }
+    
+    // Create player
+    const playerRef = push(ref(database, 'players'));
+    const playerId = playerRef.key!;
+    
+    const newPlayer = {
       id: playerId,
       name: playerName,
-      roomId: room.id,
+      roomId: foundRoomId,
       score: 0,
       isReady: false,
       isOnline: true,
-      joinedAt: new Date()
+      joinedAt: new Date().toISOString(),
+      userId: currentUserId
     };
-    MOCK_PLAYERS.push(newPlayer);
-    setCurrentRoom(room);
-    setPlayers([...MOCK_PLAYERS.filter(p => p.roomId === room.id)]);
+    
+    await set(playerRef, newPlayer);
+    
+    // Store player ID in localStorage
+    localStorage.setItem('current_player_id', playerId);
+    localStorage.setItem('current_room_id', foundRoomId);
   };
 
   const addQuestion = async (roomId: string, question: Omit<Question, 'id'>): Promise<void> => {
-    // Firebase: await updateDoc(doc(db, 'rooms', roomId), { questions: arrayUnion(question) });
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
     
-    const room = MOCK_ROOMS.find(r => r.id === roomId);
-    if (!room) throw new Error('Room not found');
+    if (!snapshot.exists()) throw new Error('Room not found');
+    
+    const room = snapshot.val();
+    const questions = room.questions || [];
     
     const newQuestion: Question = {
       ...question,
-      id: `q_${Date.now()}`
+      id: `q_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
     };
-    room.questions.push(newQuestion);
-    setCurrentRoom({ ...room });
+    
+    questions.push(newQuestion);
+    await update(roomRef, { questions });
   };
 
   const updateQuestion = async (roomId: string, questionId: string, updates: Partial<Question>): Promise<void> => {
-    const room = MOCK_ROOMS.find(r => r.id === roomId);
-    if (!room) throw new Error('Room not found');
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
     
-    const questionIndex = room.questions.findIndex(q => q.id === questionId);
+    if (!snapshot.exists()) throw new Error('Room not found');
+    
+    const room = snapshot.val();
+    const questions = room.questions || [];
+    const questionIndex = questions.findIndex((q: Question) => q.id === questionId);
+    
     if (questionIndex === -1) throw new Error('Question not found');
     
-    room.questions[questionIndex] = { ...room.questions[questionIndex], ...updates };
-    setCurrentRoom({ ...room });
+    questions[questionIndex] = { ...questions[questionIndex], ...updates };
+    await update(roomRef, { questions });
   };
 
   const deleteQuestion = async (roomId: string, questionId: string): Promise<void> => {
-    const room = MOCK_ROOMS.find(r => r.id === roomId);
-    if (!room) throw new Error('Room not found');
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
     
-    room.questions = room.questions.filter(q => q.id !== questionId);
-    setCurrentRoom({ ...room });
+    if (!snapshot.exists()) throw new Error('Room not found');
+    
+    const room = snapshot.val();
+    const questions = (room.questions || []).filter((q: Question) => q.id !== questionId);
+    await update(roomRef, { questions });
   };
 
   const publishRoom = async (roomId: string): Promise<void> => {
-    const room = MOCK_ROOMS.find(r => r.id === roomId);
-    if (!room) throw new Error('Room not found');
-    if (room.questions.length === 0) throw new Error('Add at least one question');
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
     
-    room.isPublished = true;
-    setCurrentRoom({ ...room });
+    if (!snapshot.exists()) throw new Error('Room not found');
+    
+    const room = snapshot.val();
+    if (!room.questions || room.questions.length === 0) {
+      throw new Error('Add at least one question');
+    }
+    
+    await update(roomRef, { isPublished: true });
   };
 
   const startQuiz = async (roomId: string): Promise<void> => {
-    const room = MOCK_ROOMS.find(r => r.id === roomId);
-    if (!room) throw new Error('Room not found');
-    
-    room.isStarted = true;
-    setCurrentRoom({ ...room });
+    await update(ref(database, `rooms/${roomId}`), { isStarted: true });
   };
 
   const publishQuestion = async (
@@ -254,98 +307,212 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     scoringMode: ScoringMode,
     timeLimit: number
   ): Promise<void> => {
-    const room = MOCK_ROOMS.find(r => r.id === roomId);
-    if (!room) throw new Error('Room not found');
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
     
+    if (!snapshot.exists()) throw new Error('Room not found');
+    
+    const room = snapshot.val();
     const question = room.questions[questionIndex];
+    
     if (!question) throw new Error('Question not found');
     
-    room.currentQuestionIndex = questionIndex;
-    setCurrentRoom({ ...room });
-    setCurrentQuestion({
+    await update(roomRef, { currentQuestionIndex: questionIndex });
+    
+    // Set current question in Firebase
+    const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
+    await set(currentQuestionRef, {
       question,
       basePoints,
       scoringMode,
       timeLimit,
-      startedAt: new Date()
+      startedAt: new Date().toISOString()
     });
-    setAnswers([]);
+    
+    // Clear previous answers
+    const answersRef = ref(database, `answers/${roomId}`);
+    await remove(answersRef);
   };
 
   const submitAnswer = async (playerId: string, answer: string): Promise<void> => {
-    if (!currentQuestion) throw new Error('No active question');
+    if (!currentQuestion || !currentRoom) throw new Error('No active question');
     
-    const player = MOCK_PLAYERS.find(p => p.id === playerId);
+    const playersRef = ref(database, 'players');
+    const snapshot = await get(playersRef);
+    
+    if (!snapshot.exists()) throw new Error('Players not found');
+    
+    const allPlayers = snapshot.val() as Record<string, FirebasePlayer>;
+    let player: FirebasePlayer | null = null;
+    
+    for (const [, p] of Object.entries(allPlayers)) {
+      if (p.id === playerId) {
+        player = p;
+        break;
+      }
+    }
+    
     if (!player) throw new Error('Player not found');
     
-    const timeTaken = (Date.now() - currentQuestion.startedAt.getTime()) / 1000;
+    const timeTaken = (Date.now() - new Date(currentQuestion.startedAt).getTime()) / 1000;
     const isCorrect = Array.isArray(currentQuestion.question.correctAnswer)
       ? currentQuestion.question.correctAnswer.includes(answer)
       : currentQuestion.question.correctAnswer === answer;
     
+    // Get current answers count
+    const answersRef = ref(database, `answers/${currentRoom.id}`);
+    const answersSnapshot = await get(answersRef);
+    const currentAnswers = answersSnapshot.exists() ? Object.values(answersSnapshot.val() as Record<string, Answer>) : [];
+    const correctAnswersCount = currentAnswers.filter((a) => a.isCorrect).length;
+    
     let pointsEarned = 0;
     if (isCorrect) {
-      const answerCount = answers.filter(a => a.isCorrect).length;
-      
       switch (currentQuestion.scoringMode) {
         case 'time-based':
           pointsEarned = Math.max(0, currentQuestion.basePoints - Math.floor(timeTaken));
           break;
         case 'order-based':
-          if (answerCount === 0) pointsEarned = currentQuestion.basePoints;
-          else if (answerCount === 1) pointsEarned = Math.floor(currentQuestion.basePoints * 0.7);
-          else if (answerCount === 2) pointsEarned = Math.floor(currentQuestion.basePoints * 0.4);
+          if (correctAnswersCount === 0) pointsEarned = currentQuestion.basePoints;
+          else if (correctAnswersCount === 1) pointsEarned = Math.floor(currentQuestion.basePoints * 0.7);
+          else if (correctAnswersCount === 2) pointsEarned = Math.floor(currentQuestion.basePoints * 0.4);
           break;
         case 'first-only':
-          if (answerCount === 0) pointsEarned = currentQuestion.basePoints;
+          if (correctAnswersCount === 0) pointsEarned = currentQuestion.basePoints;
           break;
       }
     }
     
-    player.score += pointsEarned;
+    // Update player score
+    for (const [pid, p] of Object.entries(allPlayers)) {
+      if (p.id === playerId) {
+        const playerRef = ref(database, `players/${pid}`);
+        await update(playerRef, { score: player.score + pointsEarned });
+        break;
+      }
+    }
     
-    const newAnswer: Answer = {
+    // Store answer
+    const answerRef = push(ref(database, `answers/${currentRoom.id}`));
+    await set(answerRef, {
       playerId,
       playerName: player.name,
       answer,
       timeTaken,
       isCorrect,
       pointsEarned
-    };
-    
-    setAnswers([...answers, newAnswer]);
-    setPlayers([...MOCK_PLAYERS.filter(p => p.roomId === player.roomId)]);
+    });
   };
 
   const setPlayerReady = async (playerId: string, isReady: boolean): Promise<void> => {
-    const player = MOCK_PLAYERS.find(p => p.id === playerId);
-    if (!player) throw new Error('Player not found');
+    const playersRef = ref(database, 'players');
+    const snapshot = await get(playersRef);
     
-    player.isReady = isReady;
-    setPlayers([...MOCK_PLAYERS.filter(p => p.roomId === player.roomId)]);
+    if (!snapshot.exists()) throw new Error('Players not found');
+    
+    const allPlayers = snapshot.val() as Record<string, FirebasePlayer>;
+    for (const [pid, p] of Object.entries(allPlayers)) {
+      if (p.id === playerId) {
+        await update(ref(database, `players/${pid}`), { isReady });
+        break;
+      }
+    }
   };
 
   const nextQuestion = async (roomId: string): Promise<void> => {
-    setCurrentQuestion(null);
-    setAnswers([]);
+    // Clear current question
+    const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
+    await remove(currentQuestionRef);
   };
 
   const endQuiz = async (roomId: string): Promise<void> => {
-    const room = MOCK_ROOMS.find(r => r.id === roomId);
-    if (!room) throw new Error('Room not found');
+    await update(ref(database, `rooms/${roomId}`), { isCompleted: true });
     
-    room.isCompleted = true;
-    setCurrentRoom({ ...room });
-    setCurrentQuestion(null);
+    // Clear current question
+    const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
+    await remove(currentQuestionRef);
   };
 
   const leaveRoom = async (playerId: string): Promise<void> => {
-    const playerIndex = MOCK_PLAYERS.findIndex(p => p.id === playerId);
-    if (playerIndex !== -1) {
-      MOCK_PLAYERS.splice(playerIndex, 1);
-      setPlayers([...MOCK_PLAYERS]);
+    const playersRef = ref(database, 'players');
+    const snapshot = await get(playersRef);
+    
+    if (!snapshot.exists()) return;
+    
+    const allPlayers = snapshot.val() as Record<string, FirebasePlayer>;
+    for (const [pid, p] of Object.entries(allPlayers)) {
+      if (p.id === playerId) {
+        await update(ref(database, `players/${pid}`), { isOnline: false });
+        break;
+      }
     }
   };
+
+  // Real-time listeners
+  useEffect(() => {
+    const roomId = localStorage.getItem('current_room_id');
+    if (!roomId) return;
+
+    // Listen to room changes
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const unsubscribeRoom = onValue(roomRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setCurrentRoom({
+          ...data,
+          createdAt: new Date(data.createdAt)
+        });
+      }
+    });
+
+    // Listen to players in the room
+    const playersRef = ref(database, 'players');
+    const unsubscribePlayers = onValue(playersRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const allPlayers = snapshot.val() as Record<string, FirebasePlayer>;
+        const roomPlayers = Object.values(allPlayers)
+          .filter((p) => p.roomId === roomId)
+          .map((p) => ({
+            ...p,
+            joinedAt: new Date(p.joinedAt)
+          }));
+        setPlayers(roomPlayers as Player[]);
+      } else {
+        setPlayers([]);
+      }
+    });
+
+    // Listen to current question
+    const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
+    const unsubscribeQuestion = onValue(currentQuestionRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setCurrentQuestion({
+          ...data,
+          startedAt: new Date(data.startedAt)
+        });
+      } else {
+        setCurrentQuestion(null);
+      }
+    });
+
+    // Listen to answers
+    const answersRef = ref(database, `answers/${roomId}`);
+    const unsubscribeAnswers = onValue(answersRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val() as Record<string, Answer>;
+        setAnswers(Object.values(data));
+      } else {
+        setAnswers([]);
+      }
+    });
+
+    return () => {
+      unsubscribeRoom();
+      unsubscribePlayers();
+      unsubscribeQuestion();
+      unsubscribeAnswers();
+    };
+  }, []);
 
   return (
     <QuizContext.Provider
@@ -354,6 +521,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         players,
         currentQuestion,
         answers,
+        currentUserId,
         createRoom,
         joinRoom,
         addQuestion,

@@ -32,6 +32,7 @@ const CreateRoom = () => {
     setIsLoading(true);
     try {
       const roomId = await createRoom(roomName, ownerName, maxPlayers);
+      localStorage.setItem('current_room_id', roomId);
       toast.success('Room created successfully!');
       navigate(`/room/${roomId}`);
     } catch (error) {

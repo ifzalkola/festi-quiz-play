@@ -26,8 +26,9 @@ const RoomDashboard = () => {
     try {
       await publishRoom(roomId);
       toast.success('Room published! Players can now join.');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to publish room');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to publish room';
+      toast.error(errorMessage);
     }
   };
 
@@ -42,8 +43,9 @@ const RoomDashboard = () => {
       await startQuiz(roomId);
       toast.success('Quiz started!');
       navigate(`/room/${roomId}/control`);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to start quiz');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to start quiz';
+      toast.error(errorMessage);
     }
   };
 

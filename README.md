@@ -1,73 +1,240 @@
-# Welcome to your Lovable project
+# 🎯 Festi Quiz Play
 
-## Project info
+A real-time multiplayer quiz application with Firebase backend and GitHub Pages deployment.
 
-**URL**: https://lovable.dev/projects/00efada0-ec31-45c0-87f2-78a1f4b7f991
+[![Deploy to GitHub Pages](https://github.com/ifzalkola/festi-quiz-play/actions/workflows/deploy.yml/badge.svg)](https://github.com/ifzalkola/festi-quiz-play/actions/workflows/deploy.yml)
 
-## How can I edit this code?
+## ✨ Features
 
-There are several ways of editing your application.
+- 🎮 **Create & Join Rooms** - Host creates quiz rooms with unique codes, players join instantly
+- 📝 **Multiple Question Types** - Support for True/False, Multiple Choice, and Text Input
+- 🏆 **Advanced Scoring** - Three scoring modes: Time-based, Order-based, and First-only
+- 👥 **Real-time Updates** - Live player tracking, instant score updates via Firebase
+- 🔥 **Firebase Integration** - Realtime Database for instant synchronization
+- 📱 **Responsive Design** - Beautiful UI with Tailwind CSS and shadcn/ui components
+- 🚀 **Auto Deployment** - GitHub Actions workflow for seamless GitHub Pages deployment
 
-**Use Lovable**
+## 🚀 Quick Start
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/00efada0-ec31-45c0-87f2-78a1f4b7f991) and start prompting.
+### Prerequisites
 
-Changes made via Lovable will be committed automatically to this repo.
+- Node.js 18+ and npm
+- Firebase project ([Create one here](https://console.firebase.google.com/))
+- GitHub account (for deployment)
 
-**Use your preferred IDE**
+### Local Setup
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/ifzalkola/festi-quiz-play.git
+   cd festi-quiz-play
+   ```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-Follow these steps:
+3. **Set up Firebase:**
+   
+   Create a `.env` file in the root directory:
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Fill in your Firebase configuration (get from Firebase Console → Project Settings):
+   ```env
+   VITE_FIREBASE_API_KEY=your_api_key_here
+   VITE_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+   VITE_FIREBASE_DATABASE_URL=https://your_project_id-default-rtdb.firebaseio.com
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+   VITE_FIREBASE_APP_ID=your_app_id
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+4. **Enable Firebase Realtime Database:**
+   - Go to Firebase Console → Build → Realtime Database
+   - Click "Create Database"
+   - Choose a location
+   - Start in "Test Mode" (update rules before production)
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+5. **Run the development server:**
+   ```bash
+   npm run dev
+   ```
+   
+   Open [http://localhost:8080](http://localhost:8080)
 
-# Step 3: Install the necessary dependencies.
-npm i
+## 🌐 GitHub Pages Deployment
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+### Automatic Deployment (via GitHub Actions)
+
+The app auto-deploys to GitHub Pages on every push to main/master.
+
+**Setup Steps:**
+
+1. **Add Firebase secrets to GitHub:**
+   - Go to your repository on GitHub
+   - Settings → Secrets and variables → Actions → New repository secret
+   - Add these secrets (from your `.env` file):
+     - `VITE_FIREBASE_API_KEY`
+     - `VITE_FIREBASE_AUTH_DOMAIN`
+     - `VITE_FIREBASE_DATABASE_URL`
+     - `VITE_FIREBASE_PROJECT_ID`
+     - `VITE_FIREBASE_STORAGE_BUCKET`
+     - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+     - `VITE_FIREBASE_APP_ID`
+
+2. **Enable GitHub Pages:**
+   - Go to Settings → Pages
+   - Under "Source", select **GitHub Actions**
+
+3. **Deploy:**
+   - Push to main/master branch
+   - The GitHub Actions workflow will automatically build and deploy
+   - Visit: `https://ifzalkola.github.io/festi-quiz-play/`
+
+### Manual Build
+
+```bash
+npm run build
 ```
 
-**Edit a file directly in GitHub**
+Output will be in the `dist/` folder.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 🎮 How to Use
 
-**Use GitHub Codespaces**
+### As a Quiz Host:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+1. Click **"Create Room"**
+2. Enter room name, your name, and max players
+3. Add questions using the question manager
+4. Click **"Publish Room"** to allow players to join
+5. Share the **room code** with players
+6. Start the quiz when ready
+7. Publish questions one by one
+8. View live answers and scores
 
-## What technologies are used for this project?
+### As a Player:
 
-This project is built with:
+1. Click **"Join Room"**
+2. Enter the **room code** from the host
+3. Enter your name
+4. Wait in the lobby for the quiz to start
+5. Answer questions as they appear
+6. View your score and ranking in real-time
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 📁 Project Structure
 
-## How can I deploy this project?
+```
+src/
+├── components/
+│   ├── quiz/              # Quiz-specific components
+│   │   ├── PlayerList.tsx
+│   │   └── QuestionManager.tsx
+│   └── ui/                # Reusable UI components (shadcn/ui)
+├── contexts/
+│   └── QuizContext.tsx    # Firebase integration & state management
+├── lib/
+│   ├── firebase.ts        # Firebase initialization
+│   └── utils.ts           # Utility functions
+├── pages/
+│   ├── Index.tsx          # Home page
+│   ├── CreateRoom.tsx     # Room creation
+│   ├── JoinRoom.tsx       # Join room with code
+│   ├── RoomDashboard.tsx  # Host dashboard
+│   └── PlayerLobby.tsx    # Player waiting room
+└── App.tsx                # Main app component
+```
 
-Simply open [Lovable](https://lovable.dev/projects/00efada0-ec31-45c0-87f2-78a1f4b7f991) and click on Share -> Publish.
+## 🔐 Firebase Security Rules
 
-## Can I connect a custom domain to my Lovable project?
+For production, update your Realtime Database rules:
 
-Yes, you can!
+```json
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "players": {
+      "$playerId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "currentQuestions": {
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "answers": {
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    }
+  }
+}
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+**Note:** These are permissive rules for simplicity. In production, add proper authentication and authorization.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 🛠️ Tech Stack
+
+- **Frontend:** React 18, TypeScript, Vite
+- **Styling:** Tailwind CSS, shadcn/ui
+- **Database:** Firebase Realtime Database
+- **Routing:** React Router v6
+- **State:** React Context API
+- **Deployment:** GitHub Pages, GitHub Actions
+- **Build:** Vite
+
+## 📝 Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+- `npm run deploy` - Build and prepare for deployment
+
+## 🐛 Troubleshooting
+
+### Firebase Connection Issues
+- Verify all environment variables are set correctly
+- Ensure Realtime Database is enabled in Firebase Console
+- Check that database rules allow reads/writes
+
+### Build Fails
+- Clear `node_modules` and reinstall: `rm -rf node_modules && npm install`
+- Check that all Firebase env vars are present
+- Ensure TypeScript has no errors: `npm run lint`
+
+### GitHub Pages Deployment Fails
+- Verify GitHub secrets are added correctly
+- Check GitHub Actions logs in the "Actions" tab
+- Ensure GitHub Pages is enabled and source is set to "GitHub Actions"
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is open source and available under the [MIT License](LICENSE).
+
+## 🙏 Acknowledgments
+
+- Built with [Vite](https://vitejs.dev/)
+- UI components from [shadcn/ui](https://ui.shadcn.com/)
+- Icons from [Lucide](https://lucide.dev/)
+- Database by [Firebase](https://firebase.google.com/)
+
+---
+
+Made with ❤️ for quiz enthusiasts everywhere!
