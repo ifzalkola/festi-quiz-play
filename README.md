@@ -116,9 +116,10 @@ A real-time multiplayer quiz application with Firebase backend and GitHub Pages 
    - Start in "Test Mode" (update rules before production)
    
    **c) Set up Security Rules:**
-   - Copy the rules from `FIREBASE_RULES.json`
-   - Paste them in Firebase Console → Realtime Database → Rules
-   - Publish the rules
+   - Go to Firebase Console → Realtime Database → Rules
+   - Copy the security rules from the "Firebase Security Rules" section below
+   - Paste them in the rules editor
+   - Click "Publish"
 
 5. **Create Default Admin User:**
    
@@ -153,6 +154,8 @@ A real-time multiplayer quiz application with Firebase backend and GitHub Pages 
    }
    ```
    - Replace `PASTE_THE_UID_FROM_AUTH_HERE` with the UID from the Authentication user you just created
+   
+   📖 **See `ADMIN_USER_SETUP.md` for detailed step-by-step instructions with screenshots**
 
 6. **Run the development server:**
    ```bash
@@ -163,11 +166,12 @@ A real-time multiplayer quiz application with Firebase backend and GitHub Pages 
 
 7. **First Login:**
    - Navigate to the app (you'll be redirected to `/login`)
-   - Use default credentials:
-     - User ID: `ifzalkola`
-     - Password: `admin123`
-   - **IMPORTANT:** Change the password after first login!
-   - Create additional users via Admin Dashboard (`/admin`)
+   - Use default admin credentials:
+     - **User ID:** `ifzalkola`
+     - **Password:** `admin123`
+   - Click "Sign In"
+   - ⚠️ **IMPORTANT:** Change the password after first login!
+   - Go to Admin Dashboard (`/admin`) to create more users
 
 ## 🌐 GitHub Pages Deployment
 
@@ -269,35 +273,54 @@ src/
 │   ├── QuizControl.tsx    # Host quiz control
 │   ├── PlayQuiz.tsx       # Player quiz interface
 │   └── Leaderboard.tsx    # Results page
-├── scripts/
-│   ├── init-admin.js      # Initialize default admin user
-│   ├── create-user.js     # Create users programmatically
-│   └── README.md          # Scripts documentation
 └── App.tsx                # Main app component with auth
 ```
 
 ## 🔐 Firebase Security Rules
 
-**IMPORTANT:** Update your Realtime Database rules for proper security.
+For production, update your Realtime Database rules:
 
-The application includes comprehensive security rules in `FIREBASE_RULES.json` that:
-- Require authentication for all operations
-- Restrict user management to admins
-- Validate data structure and types
-- Prevent unauthorized access
-
-To apply these rules:
 1. Go to Firebase Console → Realtime Database → Rules
-2. Copy the contents of `FIREBASE_RULES.json`
-3. Paste into the rules editor
-4. Click "Publish"
+2. Replace the existing rules with:
 
-**Key Security Features:**
-- ✅ All reads/writes require authentication
-- ✅ Users can only modify their own data
-- ✅ Admin role required for user management
-- ✅ Data validation for all fields
-- ✅ Proper indexing for queries
+```json
+{
+  "rules": {
+    "users": {
+      ".read": "auth != null",
+      "$userId": {
+        ".write": "auth != null"
+      }
+    },
+    "rooms": {
+      ".read": "auth != null",
+      "$roomId": {
+        ".write": "auth != null"
+      }
+    },
+    "players": {
+      ".read": "auth != null",
+      "$playerId": {
+        ".write": "auth != null"
+      }
+    },
+    "currentQuestions": {
+      ".read": "auth != null",
+      "$roomId": {
+        ".write": "auth != null"
+      }
+    },
+    "answers": {
+      ".read": "auth != null",
+      "$roomId": {
+        ".write": "auth != null"
+      }
+    }
+  }
+}
+```
+
+3. Click "Publish"
 
 ## 🛠️ Tech Stack
 
@@ -329,8 +352,8 @@ To apply these rules:
 ### Firebase Connection Issues
 - Verify all environment variables are set correctly
 - Ensure both Authentication and Realtime Database are enabled
-- Check that database rules are properly configured
-- Verify security rules match those in `FIREBASE_RULES.json`
+- Check that database rules are properly configured (see Firebase Security Rules section)
+- Make sure the security rules require authentication
 
 ### Build Fails
 - Clear `node_modules` and reinstall: `rm -rf node_modules && npm install`
