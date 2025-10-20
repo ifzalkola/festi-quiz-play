@@ -52,18 +52,12 @@ export const useAuth = () => {
   return context;
 };
 
-const defaultAdminPermissions: Permission = {
+// All users are admin with full permissions
+const defaultPermissions: Permission = {
   canCreateRooms: true,
   canJoinRooms: true,
   canManageUsers: true,
   canDeleteRooms: true,
-};
-
-const defaultUserPermissions: Permission = {
-  canCreateRooms: true,
-  canJoinRooms: true,
-  canManageUsers: false,
-  canDeleteRooms: false,
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -178,7 +172,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     userId: string,
     email: string,
     password: string,
-    role: UserRole,
+    role: UserRole = 'admin',
     permissions?: Partial<Permission>
   ) => {
     if (!currentUser || currentUser.role !== 'admin') {
@@ -194,27 +188,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('User ID already exists');
       }
 
-      // Note: In production, this should use Firebase Admin SDK to create the auth user
-      // For now, we'll create the user entry in the database
-      // The actual Firebase Auth user should be created separately
-      
+      // All users get admin role with full permissions
       const fullPermissions: Permission = {
-        ...(role === 'admin' ? defaultAdminPermissions : defaultUserPermissions),
+        ...defaultPermissions,
         ...permissions,
       };
 
       const newUser: AppUser = {
-        uid: `user_${Date.now()}`, // Placeholder - should be Firebase Auth UID
+        uid: `pending_${Date.now()}`, // Placeholder - will be updated after Firebase Auth creation
         userId,
         email,
-        role,
+        role: 'admin', // All users are admin
         permissions: fullPermissions,
         createdAt: new Date().toISOString(),
       };
 
       await set(userRef, newUser);
       
-      console.log(`User created: ${userId}. Please create corresponding Firebase Auth user with this email: ${email}`);
+      console.log(`User created in database: ${userId}`);
+      console.log(`IMPORTANT: Create Firebase Auth user with email: ${email} and password you provided`);
     } catch (error: any) {
       console.error('Create user error:', error);
       throw new Error(error.message || 'Failed to create user');

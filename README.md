@@ -122,24 +122,37 @@ A real-time multiplayer quiz application with Firebase backend and GitHub Pages 
 
 5. **Create Default Admin User:**
    
-   **Option 1: Manual (via Firebase Console)**
+   **In Firebase Console (Authentication):**
    - Go to Firebase Console → Authentication → Users
    - Click "Add user"
    - Email: `admin@quiz.app`
    - Password: `admin123`
-   - Copy the UID
+   - Click "Add user"
+   
+   **In Firebase Console (Realtime Database):**
    - Go to Realtime Database
-   - Create entry at `users/ifzalkola` with the structure from `SETUP_AUTH.md`
-   - Update `uid` field with copied UID
-   
-   **Option 2: Automated (recommended)**
-   ```bash
-   npm install firebase-admin
-   # Download service account key from Firebase Console
-   node scripts/init-admin.js
+   - Click on the root node
+   - Click the "+" icon to add a child
+   - Name: `users`
+   - Click the "+" icon on `users` to add a child
+   - Name: `ifzalkola`
+   - Add the following structure:
+   ```json
+   {
+     "uid": "PASTE_THE_UID_FROM_AUTH_HERE",
+     "userId": "ifzalkola",
+     "email": "admin@quiz.app",
+     "role": "admin",
+     "permissions": {
+       "canCreateRooms": true,
+       "canJoinRooms": true,
+       "canManageUsers": true,
+       "canDeleteRooms": true
+     },
+     "createdAt": "2025-10-20T00:00:00.000Z"
+   }
    ```
-   
-   See `SETUP_AUTH.md` for detailed instructions.
+   - Replace `PASTE_THE_UID_FROM_AUTH_HERE` with the UID from the Authentication user you just created
 
 6. **Run the development server:**
    ```bash
@@ -308,10 +321,10 @@ To apply these rules:
 ## 🐛 Troubleshooting
 
 ### Authentication Issues
-- **"User not found"**: Ensure user exists in both Firebase Auth and Database
-- **"Permission denied"**: Check user permissions in Admin Dashboard
-- **Cannot access Admin Dashboard**: Verify user role is set to "admin"
-- See `SETUP_AUTH.md` for detailed troubleshooting
+- **"User not found"**: Ensure user exists in both Firebase Auth and Database with matching email
+- **"Permission denied"**: All users are admin, check Firebase security rules
+- **Cannot login**: Verify the user exists in Firebase Authentication
+- **Database UID mismatch**: Make sure the `uid` in database matches the UID in Firebase Auth
 
 ### Firebase Connection Issues
 - Verify all environment variables are set correctly
@@ -337,13 +350,23 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is open source and available under the [MIT License](LICENSE).
 
-## 📚 Documentation
+## 📚 Creating Additional Users
 
-- **SETUP_AUTH.md** - Detailed authentication setup guide
-- **AUTH_IMPLEMENTATION.md** - Technical implementation details
-- **AUTHENTICATION_SUMMARY.md** - Quick overview of auth features
-- **FIREBASE_RULES.json** - Security rules for Firebase
-- **scripts/README.md** - User creation scripts documentation
+After logging in as admin:
+
+1. **In the App:**
+   - Go to `/admin` (Admin Dashboard)
+   - Click "Create User"
+   - Fill in User ID, Email, and Password
+   - Click "Create User in Database"
+   - **IMPORTANT:** Copy the email and password shown in the alert
+
+2. **In Firebase Console:**
+   - Go to Firebase Console → Authentication → Users
+   - Click "Add user"
+   - Paste the same email and password
+   - Click "Add user"
+   - Done! User can now log in
 
 ## 🔒 Default Admin Credentials
 

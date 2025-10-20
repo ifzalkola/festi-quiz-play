@@ -26,12 +26,12 @@ const AdminDashboard = () => {
   const [newUserId, setNewUserId] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<UserRole>('user');
+  const [newRole, setNewRole] = useState<UserRole>('admin');
   const [newPermissions, setNewPermissions] = useState<Permission>({
     canCreateRooms: true,
     canJoinRooms: true,
-    canManageUsers: false,
-    canDeleteRooms: false,
+    canManageUsers: true,
+    canDeleteRooms: true,
   });
 
   // Edit permissions state
@@ -70,16 +70,19 @@ const AdminDashboard = () => {
       toast.success(`User ${newUserId} created successfully!`);
       toast.info(`Please create Firebase Auth user with email: ${newEmail}`);
       
+      // Show instructions
+      alert(`User ${newUserId} created in database!\n\nNOW COMPLETE THESE STEPS IN FIREBASE CONSOLE:\n\n1. Go to Firebase Console → Authentication → Users\n2. Click "Add user"\n3. Email: ${newEmail}\n4. Password: ${newPassword}\n5. Click "Add user"\n6. Done!`);
+      
       // Reset form
       setNewUserId('');
       setNewEmail('');
       setNewPassword('');
-      setNewRole('user');
+      setNewRole('admin');
       setNewPermissions({
         canCreateRooms: true,
         canJoinRooms: true,
-        canManageUsers: false,
-        canDeleteRooms: false,
+        canManageUsers: true,
+        canDeleteRooms: true,
       });
       setCreateDialogOpen(false);
       
@@ -184,16 +187,16 @@ const AdminDashboard = () => {
                     Create User
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Create New User</DialogTitle>
                     <DialogDescription>
-                      Add a new user to the system. You'll need to create the Firebase Auth account separately.
+                      Step 1: Create user in database. Step 2: Create in Firebase Console.
                     </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleCreateUser} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="userId">User ID</Label>
+                      <Label htmlFor="userId">User ID *</Label>
                       <Input
                         id="userId"
                         value={newUserId}
@@ -201,10 +204,11 @@ const AdminDashboard = () => {
                         placeholder="e.g., john_doe"
                         required
                       />
+                      <p className="text-xs text-muted-foreground">Unique identifier for login</p>
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="email">Email *</Label>
                       <Input
                         id="email"
                         type="email"
@@ -213,10 +217,11 @@ const AdminDashboard = () => {
                         placeholder="user@example.com"
                         required
                       />
+                      <p className="text-xs text-muted-foreground">Must be a valid email address</p>
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="password">Password</Label>
+                      <Label htmlFor="password">Password *</Label>
                       <Input
                         id="password"
                         type="password"
@@ -226,74 +231,22 @@ const AdminDashboard = () => {
                         required
                         minLength={6}
                       />
+                      <p className="text-xs text-muted-foreground">Remember this - you'll need it for Firebase Console</p>
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label htmlFor="role">Role</Label>
-                      <Select value={newRole} onValueChange={(value) => setNewRole(value as UserRole)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="user">User</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <Label>Permissions</Label>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="canCreateRooms" className="font-normal">Can Create Rooms</Label>
-                          <Switch
-                            id="canCreateRooms"
-                            checked={newPermissions.canCreateRooms}
-                            onCheckedChange={(checked) => 
-                              setNewPermissions({ ...newPermissions, canCreateRooms: checked })
-                            }
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="canJoinRooms" className="font-normal">Can Join Rooms</Label>
-                          <Switch
-                            id="canJoinRooms"
-                            checked={newPermissions.canJoinRooms}
-                            onCheckedChange={(checked) => 
-                              setNewPermissions({ ...newPermissions, canJoinRooms: checked })
-                            }
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="canManageUsers" className="font-normal">Can Manage Users</Label>
-                          <Switch
-                            id="canManageUsers"
-                            checked={newPermissions.canManageUsers}
-                            onCheckedChange={(checked) => 
-                              setNewPermissions({ ...newPermissions, canManageUsers: checked })
-                            }
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="canDeleteRooms" className="font-normal">Can Delete Rooms</Label>
-                          <Switch
-                            id="canDeleteRooms"
-                            checked={newPermissions.canDeleteRooms}
-                            onCheckedChange={(checked) => 
-                              setNewPermissions({ ...newPermissions, canDeleteRooms: checked })
-                            }
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <Alert>
-                      <AlertDescription>
-                        After creating the user here, you must also create a Firebase Authentication user with the same email through the Firebase Console.
+                    <Alert className="bg-blue-50 border-blue-200">
+                      <AlertDescription className="text-sm">
+                        <strong>After clicking Create User:</strong>
+                        <ol className="list-decimal ml-4 mt-2 space-y-1">
+                          <li>Go to Firebase Console → Authentication → Users</li>
+                          <li>Click "Add user"</li>
+                          <li>Enter the same email and password</li>
+                          <li>Click "Add user"</li>
+                        </ol>
                       </AlertDescription>
                     </Alert>
                     
-                    <Button type="submit" className="w-full">Create User</Button>
+                    <Button type="submit" className="w-full">Create User in Database</Button>
                   </form>
                 </DialogContent>
               </Dialog>
