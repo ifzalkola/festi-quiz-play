@@ -34,7 +34,7 @@ const RoomDashboard = () => {
 
   const handleStartQuiz = async () => {
     if (!roomId) return;
-    if (players.filter(p => p.isReady).length === 0) {
+    if (players?.filter(p => p?.isReady)?.length === 0) {
       toast.error('Wait for at least one player to be ready');
       return;
     }
@@ -103,11 +103,11 @@ const RoomDashboard = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">Questions</p>
-                  <p className="text-2xl font-bold">{currentRoom.questions.length}</p>
+                  <p className="text-2xl font-bold">{currentRoom.questions?.length || 0}</p>
                 </div>
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">Max Players</p>
-                  <p className="text-2xl font-bold">{currentRoom.maxPlayers}</p>
+                  <p className="text-2xl font-bold">{currentRoom.maxPlayers || 0}</p>
                 </div>
               </div>
 
@@ -115,7 +115,7 @@ const RoomDashboard = () => {
                 <Button 
                   onClick={handlePublishRoom} 
                   className="w-full"
-                  disabled={currentRoom.questions.length === 0}
+                  disabled={!currentRoom.questions || currentRoom.questions.length === 0}
                 >
                   Publish Room
                 </Button>
@@ -127,7 +127,7 @@ const RoomDashboard = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="w-5 h-5" />
-                Players ({players.length}/{currentRoom.maxPlayers})
+                Players ({players?.length || 0}/{currentRoom.maxPlayers || 0})
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -143,7 +143,7 @@ const RoomDashboard = () => {
           <CardContent>
             <QuestionManager 
               roomId={roomId!} 
-              questions={currentRoom.questions}
+              questions={currentRoom.questions || []}
               canEdit={!currentRoom.isStarted}
             />
           </CardContent>

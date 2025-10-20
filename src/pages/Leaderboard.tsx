@@ -42,19 +42,21 @@ const Leaderboard = () => {
     );
   }
 
-  const sortedPlayers = [...players]
-    .filter(p => p.isOnline)
-    .sort((a, b) => b.score - a.score);
+  const sortedPlayers = [...(players || [])]
+    .filter(p => p?.isOnline)
+    .sort((a, b) => (b?.score || 0) - (a?.score || 0));
 
-  const winner = sortedPlayers[0];
-  const topThree = sortedPlayers.slice(0, 3);
-  const rest = sortedPlayers.slice(3);
+  const winner = sortedPlayers?.[0];
+  const topThree = sortedPlayers?.slice(0, 3) || [];
+  const rest = sortedPlayers?.slice(3) || [];
 
   const shareResults = () => {
+    if (!currentRoom || !winner) return;
+    
     const text = `🎉 Quiz Results for "${currentRoom.name}"\n\n` +
       `🏆 Winner: ${winner?.name} (${winner?.score} points)\n\n` +
       `Top 3:\n` +
-      topThree.map((p, i) => `${i + 1}. ${p.name} - ${p.score} points`).join('\n');
+      topThree.map((p, i) => `${i + 1}. ${p?.name} - ${p?.score} points`).join('\n');
     
     if (navigator.share) {
       navigator.share({
@@ -242,7 +244,7 @@ const Leaderboard = () => {
                 <p className="text-sm text-muted-foreground">Total Players</p>
               </div>
               <div className="text-center p-4 bg-muted rounded-lg">
-                <p className="text-3xl font-bold text-primary">{currentRoom.questions.length}</p>
+                <p className="text-3xl font-bold text-primary">{currentRoom.questions?.length || 0}</p>
                 <p className="text-sm text-muted-foreground">Questions</p>
               </div>
               <div className="text-center p-4 bg-muted rounded-lg">
@@ -253,8 +255,8 @@ const Leaderboard = () => {
               </div>
               <div className="text-center p-4 bg-muted rounded-lg">
                 <p className="text-3xl font-bold text-primary">
-                  {sortedPlayers.length > 0 
-                    ? Math.round(sortedPlayers.reduce((acc, p) => acc + p.score, 0) / sortedPlayers.length)
+                  {sortedPlayers && sortedPlayers.length > 0 
+                    ? Math.round(sortedPlayers.reduce((acc, p) => acc + (p?.score || 0), 0) / sortedPlayers.length)
                     : 0}
                 </p>
                 <p className="text-sm text-muted-foreground">Average Score</p>
@@ -278,7 +280,7 @@ const Leaderboard = () => {
                 Join Another Quiz
               </Button>
             </div>
-            {currentRoom.code && (
+            {currentRoom?.code && (
               <div className="pt-4 border-t">
                 <p className="text-sm text-muted-foreground mb-2">
                   Share this room code with others:

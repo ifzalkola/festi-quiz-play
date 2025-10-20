@@ -33,7 +33,7 @@ const QuestionManager = ({ roomId, questions, canEdit }: QuestionManagerProps) =
       return;
     }
 
-    if (newQuestion.type === 'multiple-choice' && newQuestion.options.some(o => !o.trim())) {
+    if (newQuestion.type === 'multiple-choice' && newQuestion.options?.some(o => !o?.trim())) {
       toast.error('Please fill all options');
       return;
     }
@@ -130,7 +130,7 @@ const QuestionManager = ({ roomId, questions, canEdit }: QuestionManagerProps) =
                 <>
                   <div className="space-y-2">
                     <Label>Options</Label>
-                    {newQuestion.options.map((option, index) => (
+                    {newQuestion.options?.map((option, index) => (
                       <Input
                         key={index}
                         placeholder={`Option ${index + 1}`}
@@ -153,7 +153,7 @@ const QuestionManager = ({ roomId, questions, canEdit }: QuestionManagerProps) =
                         <SelectValue placeholder="Select correct answer" />
                       </SelectTrigger>
                       <SelectContent>
-                        {newQuestion.options.map((option, index) => (
+                        {newQuestion.options?.map((option, index) => (
                           option && <SelectItem key={index} value={option}>{option}</SelectItem>
                         ))}
                       </SelectContent>
@@ -195,7 +195,7 @@ const QuestionManager = ({ roomId, questions, canEdit }: QuestionManagerProps) =
             </CardContent>
           </Card>
         ) : (
-          questions.map((question, index) => (
+          questions?.map((question, index) => (
             <Card key={question.id}>
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between gap-4">
@@ -207,7 +207,7 @@ const QuestionManager = ({ roomId, questions, canEdit }: QuestionManagerProps) =
                       </span>
                     </div>
                     <p className="font-medium mb-2">{question.text}</p>
-                    {question.options && (
+                    {question.options && question.options.length > 0 && (
                       <div className="space-y-1 text-sm text-muted-foreground">
                         {question.options.map((option, idx) => (
                           <div key={idx} className="flex items-center gap-2">

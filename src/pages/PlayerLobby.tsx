@@ -10,7 +10,7 @@ const PlayerLobby = () => {
   const navigate = useNavigate();
   const { currentRoom, players } = useQuiz();
   const [localPlayerId] = useState(`player_${Date.now()}`); // In real app, get from auth/context
-  const currentPlayer = players.find(p => p.id === localPlayerId);
+  const currentPlayer = players?.find(p => p?.id === localPlayerId);
 
   useEffect(() => {
     // Listen for quiz start
@@ -54,7 +54,7 @@ const PlayerLobby = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Players in Lobby ({players.length}/{currentRoom.maxPlayers})
+              Players in Lobby ({players?.length || 0}/{currentRoom.maxPlayers || 0})
             </CardTitle>
           </CardHeader>
           <CardContent>
