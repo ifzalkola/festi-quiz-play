@@ -73,19 +73,18 @@ Once logged in as admin:
 
 1. Go to Admin Dashboard (`/admin`)
 2. Click "Create User"
-3. Fill in User ID, Email, and Password
-4. Click "Create User in Database"
-5. An alert will show with instructions - **follow them!**
-6. Go back to Firebase Console → Authentication → Users
-7. Click "Add user"
-8. Enter the same email and password you used in step 3
-9. Click "Add user"
-10. Done! The new user can now log in
+3. Fill in:
+   - User ID (e.g., john_doe)
+   - Email (e.g., john@example.com) 
+   - Password (minimum 6 characters)
+4. Click "Create User"
+5. Done! User is created automatically in both Firebase Auth and Database
+6. The new user can now login immediately
 
 ## Important Notes
 
 - ✅ Email is **required** for all users
 - ✅ All users are created as **admin** with full permissions
 - ✅ The default admin user `ifzalkola` cannot be deleted
-- ✅ Always create users in **both** the database (via app) and Firebase Auth (via console)
-- ✅ The UID in the database will be auto-updated on first login
+- ✅ Users are **automatically created** in both Firebase Auth and Database - no manual steps needed!
+- ✅ If email is already in use, you'll get an error message

@@ -18,4 +18,8 @@ const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 const auth = getAuth(app);
 
-export { app, database, auth };
+// Secondary app for creating users without affecting current auth session
+const secondaryApp = initializeApp(firebaseConfig, 'Secondary');
+const secondaryAuth = getAuth(secondaryApp);
+
+export { app, database, auth, secondaryAuth };

@@ -155,7 +155,9 @@ A real-time multiplayer quiz application with Firebase backend and GitHub Pages 
    ```
    - Replace `PASTE_THE_UID_FROM_AUTH_HERE` with the UID from the Authentication user you just created
    
-   📖 **See `ADMIN_USER_SETUP.md` for detailed step-by-step instructions with screenshots**
+   📖 **See `ADMIN_USER_SETUP.md` for detailed step-by-step instructions**
+   
+   ⚠️ **Note:** You only need to create the default admin user manually. All other users can be created directly from the Admin Dashboard in the app!
 
 6. **Run the development server:**
    ```bash
@@ -377,19 +379,15 @@ This project is open source and available under the [MIT License](LICENSE).
 
 After logging in as admin:
 
-1. **In the App:**
-   - Go to `/admin` (Admin Dashboard)
-   - Click "Create User"
-   - Fill in User ID, Email, and Password
-   - Click "Create User in Database"
-   - **IMPORTANT:** Copy the email and password shown in the alert
-
-2. **In Firebase Console:**
-   - Go to Firebase Console → Authentication → Users
-   - Click "Add user"
-   - Paste the same email and password
-   - Click "Add user"
-   - Done! User can now log in
+1. Go to Admin Dashboard (`/admin`)
+2. Click "Create User"
+3. Fill in:
+   - User ID (e.g., john_doe)
+   - Email (e.g., john@example.com)
+   - Password (minimum 6 characters)
+4. Click "Create User"
+5. Done! User is automatically created in both Firebase Auth and Database
+6. The new user can now login with their User ID and password
 
 ## 🔒 Default Admin Credentials
 

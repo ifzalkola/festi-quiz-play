@@ -68,10 +68,7 @@ const AdminDashboard = () => {
     try {
       await createUser(newUserId, newEmail, newPassword, newRole, newPermissions);
       toast.success(`User ${newUserId} created successfully!`);
-      toast.info(`Please create Firebase Auth user with email: ${newEmail}`);
-      
-      // Show instructions
-      alert(`User ${newUserId} created in database!\n\nNOW COMPLETE THESE STEPS IN FIREBASE CONSOLE:\n\n1. Go to Firebase Console → Authentication → Users\n2. Click "Add user"\n3. Email: ${newEmail}\n4. Password: ${newPassword}\n5. Click "Add user"\n6. Done!`);
+      toast.success(`User can now login with User ID: ${newUserId}`);
       
       // Reset form
       setNewUserId('');
@@ -187,11 +184,11 @@ const AdminDashboard = () => {
                     Create User
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-md">
                   <DialogHeader>
                     <DialogTitle>Create New User</DialogTitle>
                     <DialogDescription>
-                      Step 1: Create user in database. Step 2: Create in Firebase Console.
+                      Add a new user with admin privileges. User will be created in both Firebase Auth and Database.
                     </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleCreateUser} className="space-y-4">
@@ -231,22 +228,10 @@ const AdminDashboard = () => {
                         required
                         minLength={6}
                       />
-                      <p className="text-xs text-muted-foreground">Remember this - you'll need it for Firebase Console</p>
+                      <p className="text-xs text-muted-foreground">User will use this to login</p>
                     </div>
                     
-                    <Alert className="bg-blue-50 border-blue-200">
-                      <AlertDescription className="text-sm">
-                        <strong>After clicking Create User:</strong>
-                        <ol className="list-decimal ml-4 mt-2 space-y-1">
-                          <li>Go to Firebase Console → Authentication → Users</li>
-                          <li>Click "Add user"</li>
-                          <li>Enter the same email and password</li>
-                          <li>Click "Add user"</li>
-                        </ol>
-                      </AlertDescription>
-                    </Alert>
-                    
-                    <Button type="submit" className="w-full">Create User in Database</Button>
+                    <Button type="submit" className="w-full">Create User</Button>
                   </form>
                 </DialogContent>
               </Dialog>

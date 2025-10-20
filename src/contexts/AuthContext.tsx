@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { auth, database } from '@/lib/firebase';
+import { auth, database, secondaryAuth } from '@/lib/firebase';
 import { 
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
-  User as FirebaseUser
+  User as FirebaseUser,
+  createUserWithEmailAndPassword
 } from 'firebase/auth';
 import { ref, get, set, update } from 'firebase/database';
 
@@ -188,6 +189,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('User ID already exists');
       }
 
+      // Create user in Firebase Auth using secondary auth instance
+      // This won't affect the current admin's session
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+      const authUser = userCredential.user;
+
+      // Sign out from secondary auth immediately
+      await firebaseSignOut(secondaryAuth);
+
       // All users get admin role with full permissions
       const fullPermissions: Permission = {
         ...defaultPermissions,
@@ -195,7 +204,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       };
 
       const newUser: AppUser = {
-        uid: `pending_${Date.now()}`, // Placeholder - will be updated after Firebase Auth creation
+        uid: authUser.uid,
         userId,
         email,
         role: 'admin', // All users are admin
@@ -205,10 +214,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       await set(userRef, newUser);
       
-      console.log(`User created in database: ${userId}`);
-      console.log(`IMPORTANT: Create Firebase Auth user with email: ${email} and password you provided`);
+      console.log(`User created successfully: ${userId}`);
     } catch (error: any) {
       console.error('Create user error:', error);
+      
+      // Provide more specific error messages
+      if (error.code === 'auth/email-already-in-use') {
+        throw new Error('Email is already registered');
+      } else if (error.code === 'auth/invalid-email') {
+        throw new Error('Invalid email address');
+      } else if (error.code === 'auth/weak-password') {
+        throw new Error('Password should be at least 6 characters');
+      }
+      
       throw new Error(error.message || 'Failed to create user');
     }
   };
