@@ -280,49 +280,45 @@ src/
 
 ## 🔐 Firebase Security Rules
 
-For production, update your Realtime Database rules:
+### Quick Start (Development/Testing)
+
+For initial setup and testing, use the simplified rules:
 
 1. Go to Firebase Console → Realtime Database → Rules
-2. Replace the existing rules with:
+2. Copy the contents of `database.rules.simple.json` from this repository
+3. Paste them into the Firebase Console rules editor
+4. Click "Publish"
 
+**These simple rules:**
 ```json
 {
   "rules": {
-    "users": {
-      ".read": "auth != null",
-      "$userId": {
-        ".write": "auth != null"
-      }
-    },
-    "rooms": {
-      ".read": "auth != null",
-      "$roomId": {
-        ".write": "auth != null"
-      }
-    },
-    "players": {
-      ".read": "auth != null",
-      "$playerId": {
-        ".write": "auth != null"
-      }
-    },
-    "currentQuestions": {
-      ".read": "auth != null",
-      "$roomId": {
-        ".write": "auth != null"
-      }
-    },
-    "answers": {
-      ".read": "auth != null",
-      "$roomId": {
-        ".write": "auth != null"
-      }
-    }
+    ".read": "auth != null",
+    ".write": "auth != null"
   }
 }
 ```
 
-3. Click "Publish"
+### Production Security Rules
+
+For production deployment, use the comprehensive rules:
+
+1. Go to Firebase Console → Realtime Database → Rules
+2. Copy the contents of `database.rules.json` from this repository
+3. Paste them into the Firebase Console rules editor
+4. Click "Publish"
+
+**Key Security Features:**
+- ✅ **Authentication Required**: All read/write operations require user authentication
+- ✅ **Permission-Based Access**: Users must have appropriate permissions (canCreateRooms, canJoinRooms, etc.)
+- ✅ **Ownership Validation**: Only room owners can modify their rooms
+- ✅ **Data Validation**: Strict validation of data types, required fields, and value ranges
+- ✅ **No Unauthorized Fields**: Additional fields beyond the schema are rejected
+- ✅ **Immutable Fields**: Critical fields like IDs, creation dates, and ownership can't be changed
+
+**📖 See `FIREBASE_SECURITY_RULES.md` for complete documentation**
+
+⚠️ **Important**: The production rules allow public read access to the users collection to enable the userId-based login flow. See the security documentation for details and alternatives.
 
 ## 🛠️ Tech Stack
 
@@ -346,10 +342,14 @@ For production, update your Realtime Database rules:
 ## 🐛 Troubleshooting
 
 ### Authentication Issues
+- **"Permission denied" during login**: 
+  - Make sure you've deployed the security rules from `database.rules.json`
+  - The users collection needs read access for the login flow
+  - Verify the rules in Firebase Console → Realtime Database → Rules
 - **"User not found"**: Ensure user exists in both Firebase Auth and Database with matching email
-- **"Permission denied"**: All users are admin, check Firebase security rules
 - **Cannot login**: Verify the user exists in Firebase Authentication
 - **Database UID mismatch**: Make sure the `uid` in database matches the UID in Firebase Auth
+- **Incorrect credentials**: Double-check the userId and password are correct
 
 ### Firebase Connection Issues
 - Verify all environment variables are set correctly
