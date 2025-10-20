@@ -11,12 +11,12 @@ interface PlayerListProps {
 
 const PlayerList = ({ players, showReady = false, showScores = false }: PlayerListProps) => {
   const sortedPlayers = showScores 
-    ? [...players].sort((a, b) => b.score - a.score)
-    : players;
+    ? [...(players || [])].sort((a, b) => (b?.score || 0) - (a?.score || 0))
+    : (players || []);
 
   return (
     <div className="space-y-2">
-      {sortedPlayers.length === 0 ? (
+      {!sortedPlayers || sortedPlayers.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-4">
           No players yet
         </p>
@@ -34,7 +34,7 @@ const PlayerList = ({ players, showReady = false, showScores = false }: PlayerLi
               )}
               <Avatar className="w-8 h-8">
                 <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-xs">
-                  {player.name.slice(0, 2).toUpperCase()}
+                  {player?.name?.slice(0, 2)?.toUpperCase() || '??'}
                 </AvatarFallback>
               </Avatar>
               <div>

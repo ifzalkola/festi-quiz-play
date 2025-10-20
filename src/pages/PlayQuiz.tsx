@@ -74,7 +74,7 @@ const PlayQuiz = () => {
       return;
     }
 
-    const answer = currentQuestion?.question.type === 'text-input' ? textAnswer : selectedAnswer;
+    const answer = currentQuestion?.question?.type === 'text-input' ? textAnswer : selectedAnswer;
     
     if (!answer.trim()) {
       toast.error('Please select or enter an answer');
@@ -198,7 +198,7 @@ const PlayQuiz = () => {
                 )}
 
                 {/* Multiple Choice */}
-                {currentQuestion.question.type === 'multiple-choice' && currentQuestion.question.options && (
+                {currentQuestion.question.type === 'multiple-choice' && currentQuestion.question.options && currentQuestion.question.options.length > 0 && (
                   <div className="space-y-3">
                     {currentQuestion.question.options.map((option, idx) => (
                       <Button
@@ -237,12 +237,12 @@ const PlayQuiz = () => {
                 )}
 
                 {/* Submit Button */}
-                {!hasAnswered && timeRemaining > 0 && (
+                {!hasAnswered && timeRemaining > 0 && currentQuestion && (
                   <Button
                     onClick={handleSubmitAnswer}
                     disabled={
-                      (currentQuestion.question.type === 'text-input' && !textAnswer.trim()) ||
-                      (currentQuestion.question.type !== 'text-input' && !selectedAnswer)
+                      (currentQuestion?.question?.type === 'text-input' && !textAnswer.trim()) ||
+                      (currentQuestion?.question?.type !== 'text-input' && !selectedAnswer)
                     }
                     size="lg"
                     className="w-full mt-4"

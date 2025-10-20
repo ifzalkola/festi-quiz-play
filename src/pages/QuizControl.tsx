@@ -65,9 +65,9 @@ const QuizControl = () => {
     );
   }
 
-  const currentQ = currentRoom.questions[questionIndex];
-  const totalQuestions = currentRoom.questions.length;
-  const progress = (questionIndex / totalQuestions) * 100;
+  const currentQ = currentRoom.questions?.[questionIndex];
+  const totalQuestions = currentRoom.questions?.length || 0;
+  const progress = totalQuestions > 0 ? (questionIndex / totalQuestions) * 100 : 0;
 
   const handlePublishQuestion = async () => {
     if (!roomId || !currentQ) return;
@@ -108,9 +108,9 @@ const QuizControl = () => {
     }
   };
 
-  const answeredPlayers = answers.length;
-  const totalPlayers = players.filter(p => p.isOnline).length;
-  const correctAnswers = answers.filter(a => a.isCorrect).length;
+  const answeredPlayers = answers?.length || 0;
+  const totalPlayers = players?.filter(p => p?.isOnline)?.length || 0;
+  const correctAnswers = answers?.filter(a => a?.isCorrect)?.length || 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 p-4 sm:p-6 lg:p-8">
@@ -168,7 +168,7 @@ const QuizControl = () => {
                         <p className="text-lg font-medium">{currentQ.text}</p>
                       </div>
 
-                      {currentQ.type !== 'text-input' && currentQ.options && (
+                      {currentQ.type !== 'text-input' && currentQ.options && currentQ.options.length > 0 && (
                         <div className="space-y-2">
                           <Label className="text-sm text-muted-foreground">Answer Options:</Label>
                           {currentQ.options.map((option, idx) => (
@@ -299,7 +299,7 @@ const QuizControl = () => {
             </Card>
 
             {/* Live Answers */}
-            {isQuestionActive && answers.length > 0 && (
+            {isQuestionActive && answers && answers.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Live Answers</CardTitle>
@@ -359,7 +359,7 @@ const QuizControl = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <PlayerList players={players.filter(p => p.isOnline)} showScores />
+                <PlayerList players={players?.filter(p => p?.isOnline) || []} showScores />
               </CardContent>
             </Card>
           </div>
