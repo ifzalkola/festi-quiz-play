@@ -152,7 +152,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const userData = snapshot.val() as AppUser;
       
       // Sign in with email and password
-      await signInWithEmailAndPassword(auth, userData.email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, userData.email, password);
+      
+      // Wait for user data to be loaded by fetching it directly
+      // This ensures currentUser is set before navigation happens
+      const usersRef = ref(database, 'users');
+      const usersSnapshot = await get(usersRef);
+      
+      if (usersSnapshot.exists()) {
+        const users = usersSnapshot.val() as Record<string, AppUser>;
+        const currentUserData = Object.values(users).find(u => u.uid === userCredential.user.uid);
+        
+        if (currentUserData) {
+          // Update last login
+          await update(userRef, { lastLogin: new Date().toISOString() });
+          setCurrentUser(currentUserData);
+        }
+      }
     } catch (error: any) {
       console.error('Sign in error:', error);
       throw new Error(error.message || 'Failed to sign in');

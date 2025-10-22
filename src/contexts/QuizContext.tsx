@@ -589,12 +589,10 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       // Store in local state
       setRoundStatistics(prev => [...prev, roundStats]);
       
-      // Store in Firebase for persistence and sharing
+      // Store in Firebase for persistence and sharing using push to avoid race conditions
       const roundStatsRef = ref(database, `roundStatistics/${roomId}`);
-      const snapshot = await get(roundStatsRef);
-      const existingStats = snapshot.exists() ? snapshot.val() : [];
-      const updatedStats = [...existingStats, roundStats];
-      await set(roundStatsRef, updatedStats);
+      const newRoundRef = push(roundStatsRef);
+      await set(newRoundRef, roundStats);
     }
     
     // Clear current question
@@ -625,12 +623,10 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       // Store in local state
       setRoundStatistics(prev => [...prev, roundStats]);
       
-      // Store in Firebase for persistence and sharing
+      // Store in Firebase for persistence and sharing using push to avoid race conditions
       const roundStatsRef = ref(database, `roundStatistics/${roomId}`);
-      const snapshot = await get(roundStatsRef);
-      const existingStats = snapshot.exists() ? snapshot.val() : [];
-      const updatedStats = [...existingStats, roundStats];
-      await set(roundStatsRef, updatedStats);
+      const newRoundRef = push(roundStatsRef);
+      await set(newRoundRef, roundStats);
     }
     
     await update(ref(database, `rooms/${roomId}`), { isCompleted: true });
@@ -925,8 +921,10 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     const roundStatsRef = ref(database, `roundStatistics/${roomId}`);
     const unsubscribeRoundStats = onValue(roundStatsRef, (snapshot) => {
       if (snapshot.exists()) {
-        const data = snapshot.val() as RoundStatistics[];
-        setRoundStatistics(data);
+        const data = snapshot.val() as Record<string, RoundStatistics>;
+        // Convert object to array and sort by questionIndex
+        const statsArray = Object.values(data).sort((a, b) => a.questionIndex - b.questionIndex);
+        setRoundStatistics(statsArray);
       } else {
         setRoundStatistics([]);
       }

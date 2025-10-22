@@ -24,7 +24,6 @@ const Login = () => {
 
     try {
       await signIn(userId, password);
-      debugger;
       navigate('/');
     } catch (err: any) {
       setError(err.message || 'Failed to sign in');
