@@ -9,6 +9,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import Index from "./pages/Index";
+import HowToPlay from "./pages/HowToPlay";
 import CreateRoom from "./pages/CreateRoom";
 import EditRoom from "./pages/EditRoom";
 import JoinRoom from "./pages/JoinRoom";
@@ -39,6 +40,11 @@ const App = () => (
               <Route path="/" element={
                 <ProtectedRoute>
                   <Index />
+                </ProtectedRoute>
+              } />
+              <Route path="/how-to-play" element={
+                <ProtectedRoute>
+                  <HowToPlay />
                 </ProtectedRoute>
               } />
               <Route path="/create" element={

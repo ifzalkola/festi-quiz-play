@@ -498,9 +498,11 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     }
     
     if (!player) throw new Error('Player not found');
+    
+    // Check answer - case-insensitive comparison for text inputs
     const isCorrect = Array.isArray(currentQuestion.question.correctAnswer)
-      ? currentQuestion.question.correctAnswer.includes(answer)
-      : currentQuestion.question.correctAnswer === answer;
+      ? currentQuestion.question.correctAnswer.some(ca => ca.toLowerCase() === answer.toLowerCase())
+      : currentQuestion.question.correctAnswer.toLowerCase() === answer.toLowerCase();
     
     // Get current answers count
     const answersRef = ref(database, `answers/${currentRoom.id}`);

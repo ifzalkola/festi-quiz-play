@@ -94,6 +94,10 @@ const Index = () => {
               <Button size="lg" variant="outline" onClick={() => navigate('/join')}>
                 Join with Code
               </Button>
+              <Button size="lg" variant="secondary" onClick={() => navigate('/how-to-play')}>
+                <Target className="w-5 h-5 mr-2" />
+                How to Play
+              </Button>
             </div>
           </div>
         </div>
