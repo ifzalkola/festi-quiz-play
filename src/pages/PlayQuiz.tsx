@@ -15,6 +15,7 @@ const PlayQuiz = () => {
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [textAnswer, setTextAnswer] = useState('');
   const [hasAnswered, setHasAnswered] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [timerStarted, setTimerStarted] = useState<Date | null>(null);
@@ -55,6 +56,7 @@ const PlayQuiz = () => {
   useEffect(() => {
     if (currentQuestion) {
       setHasAnswered(false);
+      setIsSubmitting(false);
       setSelectedAnswer('');
       setTextAnswer('');
     }
@@ -102,6 +104,11 @@ const PlayQuiz = () => {
   }
 
   const handleSubmitAnswer = async () => {
+    // Prevent multiple submissions
+    if (isSubmitting || hasAnswered) {
+      return;
+    }
+
     if (!playerId || !timerStarted) {
       toast.error('Player ID not found or timer not started');
       return;
@@ -118,12 +125,20 @@ const PlayQuiz = () => {
     const now = new Date();
     const timeTaken = (now.getTime() - timerStarted.getTime()) / 1000;
 
+    // Set submitting state immediately to prevent double-clicks
+    setIsSubmitting(true);
+
     try {
       await submitAnswer(playerId, answer, timeTaken);
       setHasAnswered(true);
       toast.success('Answer submitted!');
-    } catch (error) {
-      toast.error('Failed to submit answer');
+    } catch (error: any) {
+      // Reset submitting state on error so user can try again if needed
+      setIsSubmitting(false);
+      
+      // Show specific error message
+      const errorMessage = error?.message || 'Failed to submit answer';
+      toast.error(errorMessage);
     }
   };
 
@@ -211,8 +226,8 @@ const PlayQuiz = () => {
                     <Button
                       size="lg"
                       variant={selectedAnswer === 'true' ? 'default' : 'outline'}
-                      onClick={() => !hasAnswered && setSelectedAnswer('true')}
-                      disabled={hasAnswered || timeRemaining <= 0}
+                      onClick={() => !hasAnswered && !isSubmitting && setSelectedAnswer('true')}
+                      disabled={hasAnswered || isSubmitting || timeRemaining <= 0}
                       className="h-20 text-lg"
                     >
                       <CheckCircle className="w-6 h-6 mr-2" />
@@ -221,8 +236,8 @@ const PlayQuiz = () => {
                     <Button
                       size="lg"
                       variant={selectedAnswer === 'false' ? 'default' : 'outline'}
-                      onClick={() => !hasAnswered && setSelectedAnswer('false')}
-                      disabled={hasAnswered || timeRemaining <= 0}
+                      onClick={() => !hasAnswered && !isSubmitting && setSelectedAnswer('false')}
+                      disabled={hasAnswered || isSubmitting || timeRemaining <= 0}
                       className="h-20 text-lg"
                     >
                       <XCircle className="w-6 h-6 mr-2" />
@@ -239,8 +254,8 @@ const PlayQuiz = () => {
                         key={idx}
                         size="lg"
                         variant={selectedAnswer === option ? 'default' : 'outline'}
-                        onClick={() => !hasAnswered && setSelectedAnswer(option)}
-                        disabled={hasAnswered || timeRemaining <= 0}
+                        onClick={() => !hasAnswered && !isSubmitting && setSelectedAnswer(option)}
+                        disabled={hasAnswered || isSubmitting || timeRemaining <= 0}
                         className="w-full h-auto min-h-[60px] text-left justify-start whitespace-normal p-4"
                       >
                         <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-3 flex-shrink-0">
@@ -259,10 +274,10 @@ const PlayQuiz = () => {
                       placeholder="Type your answer..."
                       value={textAnswer}
                       onChange={(e) => setTextAnswer(e.target.value)}
-                      disabled={hasAnswered || timeRemaining <= 0}
+                      disabled={hasAnswered || isSubmitting || timeRemaining <= 0}
                       className="text-lg h-14"
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !hasAnswered && textAnswer.trim()) {
+                        if (e.key === 'Enter' && !hasAnswered && !isSubmitting && textAnswer.trim()) {
                           handleSubmitAnswer();
                         }
                       }}
@@ -275,13 +290,21 @@ const PlayQuiz = () => {
                   <Button
                     onClick={handleSubmitAnswer}
                     disabled={
+                      isSubmitting ||
                       (currentQuestion?.question?.type === 'text-input' && !textAnswer.trim()) ||
                       (currentQuestion?.question?.type !== 'text-input' && !selectedAnswer)
                     }
                     size="lg"
                     className="w-full mt-4"
                   >
-                    Submit Answer
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      'Submit Answer'
+                    )}
                   </Button>
                 )}
 

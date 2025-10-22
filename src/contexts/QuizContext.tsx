@@ -508,15 +508,23 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     
     if (!player) throw new Error('Player not found');
     
+    // CRITICAL: Check if player has already submitted an answer for this question
+    const answersRef = ref(database, `answers/${currentRoom.id}`);
+    const answersSnapshot = await get(answersRef);
+    const currentAnswers = answersSnapshot.exists() ? Object.values(answersSnapshot.val() as Record<string, Answer>) : [];
+    
+    // Check for duplicate submission
+    const hasAlreadyAnswered = currentAnswers.some((a) => a.playerId === playerId);
+    if (hasAlreadyAnswered) {
+      throw new Error('You have already submitted an answer for this question');
+    }
+    
     // Check answer - case-insensitive comparison for text inputs
     const isCorrect = Array.isArray(currentQuestion.question.correctAnswer)
       ? currentQuestion.question.correctAnswer.some(ca => ca.toLowerCase() === answer.toLowerCase())
       : currentQuestion.question.correctAnswer.toLowerCase() === answer.toLowerCase();
     
-    // Get current answers count
-    const answersRef = ref(database, `answers/${currentRoom.id}`);
-    const answersSnapshot = await get(answersRef);
-    const currentAnswers = answersSnapshot.exists() ? Object.values(answersSnapshot.val() as Record<string, Answer>) : [];
+    // Get correct answers count for scoring calculations
     const correctAnswersCount = currentAnswers.filter((a) => a.isCorrect).length;
     
     let pointsEarned = 0;
