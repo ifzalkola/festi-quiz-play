@@ -521,8 +521,8 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     
     // Check answer - case-insensitive comparison for text inputs
     const isCorrect = Array.isArray(currentQuestion.question.correctAnswer)
-      ? currentQuestion.question.correctAnswer.some(ca => ca.toLowerCase() === answer.toLowerCase())
-      : currentQuestion.question.correctAnswer.toLowerCase() === answer.toLowerCase();
+      ? currentQuestion.question.correctAnswer.some(ca => ca.toLowerCase().trim() === answer.toLowerCase().trim())
+      : currentQuestion.question.correctAnswer.toLowerCase().trim() === answer.toLowerCase().trim();
     
     // Get correct answers count for scoring calculations
     const correctAnswersCount = currentAnswers.filter((a) => a.isCorrect).length;
