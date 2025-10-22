@@ -474,6 +474,15 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       endsAt: endsAt.toISOString()
     });
     
+    // Store question settings separately for recovery if currentQuestion is cleared
+    // This helps preserve settings even if currentQuestion gets removed
+    const questionSettingsRef = ref(database, `questionSettings/${roomId}/${questionIndex}`);
+    await set(questionSettingsRef, {
+      basePoints,
+      scoringMode,
+      timeLimit
+    });
+    
     // Clear previous answers
     const answersRef = ref(database, `answers/${roomId}`);
     await remove(answersRef);
@@ -568,6 +577,58 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Helper function to get question data and settings for saving statistics
+  const getQuestionDataForStats = async (
+    roomId: string,
+    questionIndex: number,
+    currentQuestionSnapshot: any
+  ): Promise<{ questionData: any; questionSettings: any } | null> => {
+    let questionData;
+    let questionSettings;
+    
+    if (currentQuestionSnapshot.exists()) {
+      // Current question still exists in Firebase
+      const cq = currentQuestionSnapshot.val();
+      questionData = cq.question;
+      questionSettings = {
+        scoringMode: cq.scoringMode,
+        basePoints: cq.basePoints,
+        timeLimit: cq.timeLimit
+      };
+      return { questionData, questionSettings };
+    }
+    
+    // Current question was cleared, try to recover from stored settings and room data
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const roomSnapshot = await get(roomRef);
+    
+    if (!roomSnapshot.exists()) return null;
+    
+    const room = roomSnapshot.val();
+    const question = room.questions[questionIndex];
+    
+    if (!question) return null;
+    
+    questionData = question;
+    
+    // Try to get stored settings for this question
+    const questionSettingsRef = ref(database, `questionSettings/${roomId}/${questionIndex}`);
+    const settingsSnapshot = await get(questionSettingsRef);
+    
+    if (settingsSnapshot.exists()) {
+      questionSettings = settingsSnapshot.val();
+    } else {
+      // Use default settings if we can't recover them
+      questionSettings = {
+        scoringMode: 'time-based' as ScoringMode,
+        basePoints: 100,
+        timeLimit: 30
+      };
+    }
+    
+    return { questionData, questionSettings };
+  };
+
   const nextQuestion = async (roomId: string): Promise<void> => {
     if (!currentUserId) throw new Error('User not authenticated');
     
@@ -576,29 +637,71 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       throw new Error('You do not have permission to manage this room\'s quiz');
     }
     
-    // Store current round statistics before clearing
-    if (currentQuestion && currentRoom && answers.length > 0) {
-      const roundStats: RoundStatistics = {
-        questionIndex: currentRoom.currentQuestionIndex,
-        questionText: currentQuestion.question.text,
-        correctAnswer: currentQuestion.question.correctAnswer,
-        scoringMode: currentQuestion.scoringMode,
-        basePoints: currentQuestion.basePoints,
-        timeLimit: currentQuestion.timeLimit,
-        answers: [...answers]
-      };
+    // Get fresh data from Firebase to ensure we have the latest state
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const roomSnapshot = await get(roomRef);
+    
+    if (!roomSnapshot.exists()) {
+      throw new Error('Room not found');
+    }
+    
+    const room = roomSnapshot.val();
+    
+    // Get current question data (might be null if already cleared by hideLeaderboard)
+    const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
+    const currentQuestionSnapshot = await get(currentQuestionRef);
+    
+    // Get current answers
+    const answersRef = ref(database, `answers/${roomId}`);
+    const answersSnapshot = await get(answersRef);
+    const currentAnswers = answersSnapshot.exists() 
+      ? Object.values(answersSnapshot.val() as Record<string, Answer>) 
+      : [];
+    
+    // Check if we need to save statistics
+    // We can reconstruct the question data from the room if currentQuestion was cleared
+    const shouldSaveStats = room.currentQuestionIndex >= 0 && currentAnswers.length > 0;
+    
+    if (shouldSaveStats) {
+      // Get question data and settings using helper function
+      const questionInfo = await getQuestionDataForStats(
+        roomId,
+        room.currentQuestionIndex,
+        currentQuestionSnapshot
+      );
       
-      // Store in local state
-      setRoundStatistics(prev => [...prev, roundStats]);
-      
-      // Store in Firebase for persistence and sharing using push to avoid race conditions
-      const roundStatsRef = ref(database, `roundStatistics/${roomId}`);
-      const newRoundRef = push(roundStatsRef);
-      await set(newRoundRef, roundStats);
+      if (questionInfo) {
+        const { questionData, questionSettings } = questionInfo;
+        
+        const roundStats: RoundStatistics = {
+          questionIndex: room.currentQuestionIndex,
+          questionText: questionData.text,
+          correctAnswer: questionData.correctAnswer,
+          scoringMode: questionSettings.scoringMode,
+          basePoints: questionSettings.basePoints,
+          timeLimit: questionSettings.timeLimit,
+          answers: [...currentAnswers]
+        };
+        
+        // Check if this round was already saved to avoid duplicates
+        const roundStatsRef = ref(database, `roundStatistics/${roomId}`);
+        const roundStatsSnapshot = await get(roundStatsRef);
+        
+        let alreadySaved = false;
+        if (roundStatsSnapshot.exists()) {
+          const existingStats = Object.values(roundStatsSnapshot.val() as Record<string, RoundStatistics>);
+          alreadySaved = existingStats.some(stat => stat.questionIndex === room.currentQuestionIndex);
+        }
+        
+        if (!alreadySaved) {
+          // Store in Firebase for persistence and sharing using push to avoid race conditions
+          const newRoundRef = push(roundStatsRef);
+          await set(newRoundRef, roundStats);
+        }
+      }
     }
     
     // Clear current question
-    const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
     await remove(currentQuestionRef);
   };
 
@@ -610,31 +713,72 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       throw new Error('You do not have permission to end this room\'s quiz');
     }
     
-    // Store final round statistics if there's a current question
-    if (currentQuestion && currentRoom && answers.length > 0) {
-      const roundStats: RoundStatistics = {
-        questionIndex: currentRoom.currentQuestionIndex,
-        questionText: currentQuestion.question.text,
-        correctAnswer: currentQuestion.question.correctAnswer,
-        scoringMode: currentQuestion.scoringMode,
-        basePoints: currentQuestion.basePoints,
-        timeLimit: currentQuestion.timeLimit,
-        answers: [...answers]
-      };
+    // Get fresh data from Firebase to ensure we have the latest state
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const roomSnapshot = await get(roomRef);
+    
+    if (!roomSnapshot.exists()) {
+      throw new Error('Room not found');
+    }
+    
+    const room = roomSnapshot.val();
+    
+    // Get current question data (might be null if already cleared)
+    const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
+    const currentQuestionSnapshot = await get(currentQuestionRef);
+    
+    // Get current answers
+    const answersRef = ref(database, `answers/${roomId}`);
+    const answersSnapshot = await get(answersRef);
+    const currentAnswers = answersSnapshot.exists() 
+      ? Object.values(answersSnapshot.val() as Record<string, Answer>) 
+      : [];
+    
+    // Check if we need to save final round statistics
+    const shouldSaveStats = room.currentQuestionIndex >= 0 && currentAnswers.length > 0;
+    
+    if (shouldSaveStats) {
+      // Get question data and settings using helper function
+      const questionInfo = await getQuestionDataForStats(
+        roomId,
+        room.currentQuestionIndex,
+        currentQuestionSnapshot
+      );
       
-      // Store in local state
-      setRoundStatistics(prev => [...prev, roundStats]);
-      
-      // Store in Firebase for persistence and sharing using push to avoid race conditions
-      const roundStatsRef = ref(database, `roundStatistics/${roomId}`);
-      const newRoundRef = push(roundStatsRef);
-      await set(newRoundRef, roundStats);
+      if (questionInfo) {
+        const { questionData, questionSettings } = questionInfo;
+        
+        const roundStats: RoundStatistics = {
+          questionIndex: room.currentQuestionIndex,
+          questionText: questionData.text,
+          correctAnswer: questionData.correctAnswer,
+          scoringMode: questionSettings.scoringMode,
+          basePoints: questionSettings.basePoints,
+          timeLimit: questionSettings.timeLimit,
+          answers: [...currentAnswers]
+        };
+        
+        // Check if this round was already saved to avoid duplicates
+        const roundStatsRef = ref(database, `roundStatistics/${roomId}`);
+        const roundStatsSnapshot = await get(roundStatsRef);
+        
+        let alreadySaved = false;
+        if (roundStatsSnapshot.exists()) {
+          const existingStats = Object.values(roundStatsSnapshot.val() as Record<string, RoundStatistics>);
+          alreadySaved = existingStats.some(stat => stat.questionIndex === room.currentQuestionIndex);
+        }
+        
+        if (!alreadySaved) {
+          // Store in Firebase for persistence and sharing using push to avoid race conditions
+          const newRoundRef = push(roundStatsRef);
+          await set(newRoundRef, roundStats);
+        }
+      }
     }
     
     await update(ref(database, `rooms/${roomId}`), { isCompleted: true });
     
     // Clear current question
-    const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
     await remove(currentQuestionRef);
   };
 
@@ -657,25 +801,82 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       throw new Error('You do not have permission to hide leaderboard for this room');
     }
     
+    // Get fresh data from Firebase to ensure we have the latest state
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const roomSnapshot = await get(roomRef);
+    
+    if (!roomSnapshot.exists()) {
+      throw new Error('Room not found');
+    }
+    
+    const room = roomSnapshot.val();
+    
+    // IMPORTANT: Save round statistics BEFORE clearing current question
+    // Get current question data (should still exist at this point)
+    const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
+    const currentQuestionSnapshot = await get(currentQuestionRef);
+    
+    // Get current answers
+    const answersRef = ref(database, `answers/${roomId}`);
+    const answersSnapshot = await get(answersRef);
+    const currentAnswers = answersSnapshot.exists() 
+      ? Object.values(answersSnapshot.val() as Record<string, Answer>) 
+      : [];
+    
+    // Save statistics if we have data to save
+    const shouldSaveStats = room.currentQuestionIndex >= 0 && currentAnswers.length > 0;
+    
+    if (shouldSaveStats) {
+      // Get question data and settings using helper function
+      const questionInfo = await getQuestionDataForStats(
+        roomId,
+        room.currentQuestionIndex,
+        currentQuestionSnapshot
+      );
+      
+      if (questionInfo) {
+        const { questionData, questionSettings } = questionInfo;
+        
+        const roundStats: RoundStatistics = {
+          questionIndex: room.currentQuestionIndex,
+          questionText: questionData.text,
+          correctAnswer: questionData.correctAnswer,
+          scoringMode: questionSettings.scoringMode,
+          basePoints: questionSettings.basePoints,
+          timeLimit: questionSettings.timeLimit,
+          answers: [...currentAnswers]
+        };
+        
+        // Check if this round was already saved to avoid duplicates
+        const roundStatsRef = ref(database, `roundStatistics/${roomId}`);
+        const roundStatsSnapshot = await get(roundStatsRef);
+        
+        let alreadySaved = false;
+        if (roundStatsSnapshot.exists()) {
+          const existingStats = Object.values(roundStatsSnapshot.val() as Record<string, RoundStatistics>);
+          alreadySaved = existingStats.some(stat => stat.questionIndex === room.currentQuestionIndex);
+        }
+        
+        if (!alreadySaved) {
+          // Store in Firebase for persistence and sharing using push to avoid race conditions
+          const newRoundRef = push(roundStatsRef);
+          await set(newRoundRef, roundStats);
+        }
+      }
+    }
+    
     // Hide leaderboard and clear current question to return players to waiting state
-    await update(ref(database, `rooms/${roomId}`), { showLeaderboard: false });
+    await update(roomRef, { showLeaderboard: false });
     
     // Clear current question so players see waiting state instead of last question
-    const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
     await remove(currentQuestionRef);
     
     // Advance to next question so host sees the correct question when returning to control
-    const roomRef = ref(database, `rooms/${roomId}`);
-    const snapshot = await get(roomRef);
+    const nextQuestionIndex = room.currentQuestionIndex + 1;
     
-    if (snapshot.exists()) {
-      const room = snapshot.val();
-      const nextQuestionIndex = room.currentQuestionIndex + 1;
-      
-      // Only advance if there are more questions
-      if (nextQuestionIndex < room.questions.length) {
-        await update(roomRef, { currentQuestionIndex: nextQuestionIndex });
-      }
+    // Only advance if there are more questions
+    if (nextQuestionIndex < room.questions.length) {
+      await update(roomRef, { currentQuestionIndex: nextQuestionIndex });
     }
   };
 
@@ -756,6 +957,10 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     // Delete round statistics if exist
     const roundStatsRef = ref(database, `roundStatistics/${roomId}`);
     await remove(roundStatsRef);
+    
+    // Delete question settings if exist
+    const questionSettingsRef = ref(database, `questionSettings/${roomId}`);
+    await remove(questionSettingsRef);
   };
 
   const updateRoom = async (roomId: string, updates: Partial<QuizRoom>): Promise<void> => {
