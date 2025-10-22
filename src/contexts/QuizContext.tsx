@@ -107,6 +107,7 @@ export interface RoundStatistics {
   basePoints: number;
   timeLimit: number;
   answers: Answer[];
+  imageUrl?: string;
 }
 
 interface QuizContextType {
@@ -688,7 +689,8 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
           scoringMode: questionSettings.scoringMode,
           basePoints: questionSettings.basePoints,
           timeLimit: questionSettings.timeLimit,
-          answers: [...currentAnswers]
+          answers: [...currentAnswers],
+          imageUrl: questionData.imageUrl
         };
         
         // Check if this round was already saved to avoid duplicates
@@ -763,7 +765,8 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
           scoringMode: questionSettings.scoringMode,
           basePoints: questionSettings.basePoints,
           timeLimit: questionSettings.timeLimit,
-          answers: [...currentAnswers]
+          answers: [...currentAnswers],
+          imageUrl: questionData.imageUrl
         };
         
         // Check if this round was already saved to avoid duplicates
@@ -852,7 +855,8 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
           scoringMode: questionSettings.scoringMode,
           basePoints: questionSettings.basePoints,
           timeLimit: questionSettings.timeLimit,
-          answers: [...currentAnswers]
+          answers: [...currentAnswers],
+          imageUrl: questionData.imageUrl
         };
         
         // Check if this round was already saved to avoid duplicates

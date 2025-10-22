@@ -130,6 +130,15 @@ const RoundStatistics = ({ roundStats, isFinalLeaderboard = false }: RoundStatis
                     <div className="mb-4 p-3 bg-muted/50 rounded-lg">
                       <h4 className="font-semibold mb-2">Question:</h4>
                       <p className="text-sm">{round.questionText}</p>
+                      {round.imageUrl && (
+                        <div className="mt-3 flex justify-center">
+                          <img 
+                            src={round.imageUrl} 
+                            alt="Question" 
+                            className="max-w-full h-auto max-h-48 sm:max-h-56 md:max-h-64 rounded-md border"
+                          />
+                        </div>
+                      )}
                       <div className="mt-2 flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">Correct Answer:</span>
                         <Badge variant="outline" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">

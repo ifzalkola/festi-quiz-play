@@ -220,6 +220,16 @@ const PlayQuiz = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Image Display */}
+                {currentQuestion.question.imageUrl && (
+                  <div className="w-full flex justify-center mb-6">
+                    <img 
+                      src={currentQuestion.question.imageUrl} 
+                      alt="Question" 
+                      className="max-w-full h-auto max-h-64 sm:max-h-80 md:max-h-96 rounded-lg border-2 border-border shadow-lg"
+                    />
+                  </div>
+                )}
                 {/* True/False */}
                 {currentQuestion.question.type === 'true-false' && (
                   <div className="grid grid-cols-2 gap-4">

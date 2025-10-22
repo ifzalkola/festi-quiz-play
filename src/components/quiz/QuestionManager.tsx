@@ -24,7 +24,8 @@ const QuestionManager = ({ roomId, questions, canEdit }: QuestionManagerProps) =
     text: '',
     type: 'multiple-choice' as QuestionType,
     options: ['', '', '', ''],
-    correctAnswer: ''
+    correctAnswer: '',
+    imageUrl: ''
   });
 
   const handleAddQuestion = async () => {
@@ -50,7 +51,8 @@ const QuestionManager = ({ roomId, questions, canEdit }: QuestionManagerProps) =
         text: '',
         type: 'multiple-choice',
         options: ['', '', '', ''],
-        correctAnswer: ''
+        correctAnswer: '',
+        imageUrl: ''
       });
       setIsAddDialogOpen(false);
     } catch (error) {
@@ -106,6 +108,32 @@ const QuestionManager = ({ roomId, questions, canEdit }: QuestionManagerProps) =
                   value={newQuestion.text}
                   onChange={(e) => setNewQuestion({ ...newQuestion, text: e.target.value })}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Image URL (Optional)</Label>
+                <Input
+                  placeholder="https://example.com/image.jpg"
+                  value={newQuestion.imageUrl}
+                  onChange={(e) => setNewQuestion({ ...newQuestion, imageUrl: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Add an image to make it a picture-based question (e.g., "Identify the flag")
+                </p>
+                {newQuestion.imageUrl && (
+                  <div className="mt-2 p-2 border rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-2">Preview:</p>
+                    <img 
+                      src={newQuestion.imageUrl} 
+                      alt="Question preview" 
+                      className="max-w-full h-auto max-h-40 sm:max-h-48 rounded-md"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        toast.error('Invalid image URL');
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               {newQuestion.type === 'true-false' && (
@@ -207,6 +235,15 @@ const QuestionManager = ({ roomId, questions, canEdit }: QuestionManagerProps) =
                       </span>
                     </div>
                     <p className="font-medium mb-2">{question.text}</p>
+                    {question.imageUrl && (
+                      <div className="my-3">
+                        <img 
+                          src={question.imageUrl} 
+                          alt="Question" 
+                          className="max-w-full h-auto max-h-32 sm:max-h-40 rounded-md border"
+                        />
+                      </div>
+                    )}
                     {question.options && question.options.length > 0 && (
                       <div className="space-y-1 text-sm text-muted-foreground">
                         {question.options.map((option, idx) => (
