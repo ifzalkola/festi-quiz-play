@@ -586,7 +586,15 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         answers: [...answers]
       };
       
+      // Store in local state
       setRoundStatistics(prev => [...prev, roundStats]);
+      
+      // Store in Firebase for persistence and sharing
+      const roundStatsRef = ref(database, `roundStatistics/${roomId}`);
+      const snapshot = await get(roundStatsRef);
+      const existingStats = snapshot.exists() ? snapshot.val() : [];
+      const updatedStats = [...existingStats, roundStats];
+      await set(roundStatsRef, updatedStats);
     }
     
     // Clear current question
@@ -614,7 +622,15 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         answers: [...answers]
       };
       
+      // Store in local state
       setRoundStatistics(prev => [...prev, roundStats]);
+      
+      // Store in Firebase for persistence and sharing
+      const roundStatsRef = ref(database, `roundStatistics/${roomId}`);
+      const snapshot = await get(roundStatsRef);
+      const existingStats = snapshot.exists() ? snapshot.val() : [];
+      const updatedStats = [...existingStats, roundStats];
+      await set(roundStatsRef, updatedStats);
     }
     
     await update(ref(database, `rooms/${roomId}`), { isCompleted: true });
@@ -738,6 +754,10 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     // Delete answers if exist
     const answersRef = ref(database, `answers/${roomId}`);
     await remove(answersRef);
+    
+    // Delete round statistics if exist
+    const roundStatsRef = ref(database, `roundStatistics/${roomId}`);
+    await remove(roundStatsRef);
   };
 
   const updateRoom = async (roomId: string, updates: Partial<QuizRoom>): Promise<void> => {
@@ -839,6 +859,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       setPlayers([]);
       setCurrentQuestion(null);
       setAnswers([]);
+      setRoundStatistics([]);
       return;
     }
 
@@ -900,11 +921,23 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
+    // Listen to round statistics
+    const roundStatsRef = ref(database, `roundStatistics/${roomId}`);
+    const unsubscribeRoundStats = onValue(roundStatsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val() as RoundStatistics[];
+        setRoundStatistics(data);
+      } else {
+        setRoundStatistics([]);
+      }
+    });
+
     return () => {
       unsubscribeRoom();
       unsubscribePlayers();
       unsubscribeQuestion();
       unsubscribeAnswers();
+      unsubscribeRoundStats();
     };
   }, [currentRoomId]); // Now depends on currentRoomId state
 
