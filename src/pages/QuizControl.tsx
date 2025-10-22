@@ -373,7 +373,12 @@ const QuizControl = () => {
                     {!isQuestionActive && currentQuestion && (
                       <div className="pt-4 border-t">
                         <div className="grid grid-cols-2 gap-4">
-                          <Button onClick={handleNextQuestion} className="w-full" size="lg">
+                          <Button 
+                            onClick={questionIndex === totalQuestions ? handleEndQuiz : handleNextQuestion} 
+                            className="w-full" 
+                            size="lg"
+                            variant={questionIndex === totalQuestions ? "destructive" : "default"}
+                          >
                             <SkipForward className="w-4 h-4 mr-2" />
                             {questionIndex === totalQuestions ? 'View Final Results' : 'Continue to Next Question'}
                           </Button>

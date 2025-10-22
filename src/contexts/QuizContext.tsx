@@ -649,6 +649,20 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     // Clear current question so players see waiting state instead of last question
     const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
     await remove(currentQuestionRef);
+    
+    // Advance to next question so host sees the correct question when returning to control
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
+    
+    if (snapshot.exists()) {
+      const room = snapshot.val();
+      const nextQuestionIndex = room.currentQuestionIndex + 1;
+      
+      // Only advance if there are more questions
+      if (nextQuestionIndex < room.questions.length) {
+        await update(roomRef, { currentQuestionIndex: nextQuestionIndex });
+      }
+    }
   };
 
   const leaveRoom = async (playerId: string): Promise<void> => {
