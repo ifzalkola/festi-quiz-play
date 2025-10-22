@@ -244,6 +244,17 @@ const QuizControl = () => {
                         <p className="text-lg font-medium">{currentQ.text}</p>
                       </div>
 
+                      {/* Image Display */}
+                      {currentQ.imageUrl && (
+                        <div className="w-full flex justify-center">
+                          <img 
+                            src={currentQ.imageUrl} 
+                            alt="Question" 
+                            className="max-w-full h-auto max-h-64 sm:max-h-80 md:max-h-96 rounded-lg border-2 border-border shadow-lg"
+                          />
+                        </div>
+                      )}
+
                       {currentQ.type !== 'text-input' && currentQ.options && currentQ.options.length > 0 && (
                         <div className="space-y-2">
                           <Label className="text-sm text-muted-foreground">Answer Options:</Label>
