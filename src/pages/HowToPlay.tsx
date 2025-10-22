@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   ArrowLeft, 
   Trophy, 
@@ -17,11 +18,13 @@ import {
   BarChart3,
   BookOpen,
   PlayCircle,
-  Hash
+  Hash,
+  LogIn
 } from 'lucide-react';
 
 const HowToPlay = () => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-indigo-950 dark:to-purple-950">
@@ -30,11 +33,11 @@ const HowToPlay = () => {
         <div className="mb-8">
           <Button 
             variant="ghost" 
-            onClick={() => navigate('/')}
+            onClick={() => navigate(currentUser ? '/' : '/login')}
             className="mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
+            {currentUser ? 'Back to Home' : 'Back to Login'}
           </Button>
           
           <div className="text-center space-y-4 animate-in fade-in slide-in-from-top duration-700">
@@ -422,25 +425,42 @@ const HowToPlay = () => {
           <div className="text-center space-y-4 pb-8 animate-in fade-in duration-700 delay-700">
             <h2 className="text-2xl font-bold">Ready to Play?</h2>
             <p className="text-muted-foreground">
-              Join a quiz room and put your knowledge to the test!
+              {currentUser 
+                ? 'Join a quiz room and put your knowledge to the test!' 
+                : 'Log in to join a quiz room and put your knowledge to the test!'}
             </p>
-            <div className="flex gap-4 justify-center">
-              <Button 
-                onClick={() => navigate('/join')} 
-                size="lg"
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Join a Quiz
-              </Button>
-              <Button 
-                onClick={() => navigate('/')} 
-                variant="outline"
-                size="lg"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Home
-              </Button>
+            <div className="flex gap-4 justify-center flex-wrap">
+              {currentUser ? (
+                <>
+                  <Button 
+                    onClick={() => navigate('/join')} 
+                    size="lg"
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Join a Quiz
+                  </Button>
+                  <Button 
+                    onClick={() => navigate('/')} 
+                    variant="outline"
+                    size="lg"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Home
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button 
+                    onClick={() => navigate('/login')} 
+                    size="lg"
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  >
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Log In to Play
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

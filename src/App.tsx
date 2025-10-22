@@ -42,11 +42,7 @@ const App = () => (
                   <Index />
                 </ProtectedRoute>
               } />
-              <Route path="/how-to-play" element={
-                <ProtectedRoute>
-                  <HowToPlay />
-                </ProtectedRoute>
-              } />
+              <Route path="/how-to-play" element={<HowToPlay />} />
               <Route path="/create" element={
                 <ProtectedRoute>
                   <CreateRoom />

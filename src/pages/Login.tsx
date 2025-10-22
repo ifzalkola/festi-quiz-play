@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2 } from 'lucide-react';
+import { Loader2, BookOpen } from 'lucide-react';
 
 const Login = () => {
   const [userId, setUserId] = useState('');
@@ -87,6 +87,17 @@ const Login = () => {
             </Button>
             
           </form>
+          
+          <div className="mt-6 text-center">
+            <Button 
+              variant="link" 
+              onClick={() => navigate('/how-to-play')}
+              className="text-sm text-muted-foreground hover:text-primary"
+            >
+              <BookOpen className="w-4 h-4 mr-2" />
+              How to Play
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
