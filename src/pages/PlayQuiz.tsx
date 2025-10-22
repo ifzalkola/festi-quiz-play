@@ -148,9 +148,6 @@ const PlayQuiz = () => {
                 <h1 className="text-2xl font-bold">{currentRoom.name}</h1>
                 <p className="text-sm text-muted-foreground">Room Code: {currentRoom.code}</p>
               </div>
-              <Button variant="outline" onClick={() => navigate('/lobby')}>
-                Exit to Lobby
-              </Button>
             </div>
           </CardContent>
         </Card>

@@ -643,7 +643,12 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       throw new Error('You do not have permission to hide leaderboard for this room');
     }
     
+    // Hide leaderboard and clear current question to return players to waiting state
     await update(ref(database, `rooms/${roomId}`), { showLeaderboard: false });
+    
+    // Clear current question so players see waiting state instead of last question
+    const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
+    await remove(currentQuestionRef);
   };
 
   const leaveRoom = async (playerId: string): Promise<void> => {
