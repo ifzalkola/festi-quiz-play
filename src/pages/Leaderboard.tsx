@@ -3,19 +3,56 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useQuiz } from '@/contexts/QuizContext';
-import { Trophy, Medal, Award, Crown, Home, Share2, Copy } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Trophy, Medal, Award, Crown, Home, Share2, Copy, ArrowLeft, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
+import RoundStatistics from '@/components/quiz/RoundStatistics';
 
 const Leaderboard = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { currentRoom, players } = useQuiz();
+  const { currentRoom, players, roundStatistics, hideLeaderboard, loadRoom } = useQuiz();
+  const { currentUser, hasPermission } = useAuth();
   const [hasAnimated, setHasAnimated] = useState(false);
 
+  // Load the room when component mounts
   useEffect(() => {
-    if (!hasAnimated && players.length > 0) {
-      // Trigger confetti for top 3
+    if (roomId) {
+      loadRoom(roomId);
+    }
+  }, [roomId, loadRoom]);
+
+  // Check if this is a mid-quiz leaderboard or final leaderboard
+  const isFinalLeaderboard = currentRoom?.isCompleted || false;
+  const isMidQuiz = !isFinalLeaderboard && currentRoom?.isStarted;
+
+  // Check if current user is the room owner or admin
+  const isRoomOwner = currentRoom?.ownerId === currentUser?.userId;
+  const isAdmin = hasPermission('canManageUsers');
+  const canControlQuiz = isRoomOwner || isAdmin;
+
+  // Auto-redirect players when leaderboard is hidden (host goes back to control)
+  useEffect(() => {
+    // Only redirect players (not hosts) when leaderboard is hidden during mid-quiz
+    if (!currentRoom?.showLeaderboard && currentRoom?.isStarted && !currentRoom?.isCompleted && !canControlQuiz) {
+      // Determine where to redirect based on current player state
+      const currentPlayerId = localStorage.getItem('current_player_id');
+      const currentPlayer = players?.find(p => p?.id === currentPlayerId);
+      
+      if (currentPlayer?.isReady) {
+        // Player is ready, go back to quiz
+        navigate('/play');
+      } else {
+        // Player not ready, go back to lobby
+        navigate('/lobby');
+      }
+    }
+  }, [currentRoom, players, canControlQuiz, navigate]);
+
+  useEffect(() => {
+    if (!hasAnimated && players.length > 0 && isFinalLeaderboard) {
+      // Trigger confetti for top 3 only on final leaderboard
       setTimeout(() => {
         confetti({
           particleCount: 100,
@@ -25,7 +62,7 @@ const Leaderboard = () => {
       }, 500);
       setHasAnimated(true);
     }
-  }, [players, hasAnimated]);
+  }, [players, hasAnimated, isFinalLeaderboard]);
 
   if (!currentRoom) {
     return (
@@ -74,34 +111,76 @@ const Leaderboard = () => {
     toast.success('Room code copied!');
   };
 
+  const handleBackToQuiz = async () => {
+    if (!roomId) return;
+    
+    // Security check: Only room owners and admins can control the quiz
+    if (!canControlQuiz) {
+      toast.error('You do not have permission to control this quiz');
+      return;
+    }
+    
+    try {
+      await hideLeaderboard(roomId);
+      navigate(`/room/${roomId}/control`);
+    } catch (error) {
+      toast.error('Failed to return to quiz');
+      navigate(`/room/${roomId}/control`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-muted/20 to-background p-4 sm:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-4 animate-in fade-in slide-in-from-top duration-700">
-          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center animate-bounce">
+          <div className={`w-20 h-20 mx-auto rounded-full bg-gradient-to-br flex items-center justify-center ${
+            isFinalLeaderboard 
+              ? 'from-yellow-400 to-orange-500 animate-bounce' 
+              : 'from-blue-400 to-purple-500'
+          }`}>
             <Trophy className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold">
-            Quiz Complete! 🎉
+            {isFinalLeaderboard ? 'Quiz Complete! 🎉' : 'Current Rankings 📊'}
           </h1>
           <p className="text-xl text-muted-foreground">
             {currentRoom.name}
           </p>
+          {/* Show message for players during mid-quiz */}
+          {!isFinalLeaderboard && !canControlQuiz && (
+            <p className="text-sm text-muted-foreground bg-muted/50 px-4 py-2 rounded-lg">
+              Waiting for host to continue the quiz...
+            </p>
+          )}
           <div className="flex items-center justify-center gap-4">
-            <Button onClick={shareResults} variant="outline">
-              <Share2 className="w-4 h-4 mr-2" />
-              Share Results
-            </Button>
-            <Button onClick={() => navigate('/')} variant="outline">
-              <Home className="w-4 h-4 mr-2" />
-              Home
-            </Button>
+            {isFinalLeaderboard ? (
+              <>
+                <Button onClick={shareResults} variant="outline">
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Share Results
+                </Button>
+                <Button onClick={() => navigate('/')} variant="outline">
+                  <Home className="w-4 h-4 mr-2" />
+                  Home
+                </Button>
+              </>
+            ) : (
+              <>
+                {/* Only show "Back to Quiz Control" button to room owners/admins */}
+                {canControlQuiz && (
+                  <Button onClick={handleBackToQuiz} variant="outline">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Quiz Control
+                  </Button>
+                )}
+              </>
+            )}
           </div>
         </div>
 
-        {/* Winner Spotlight */}
-        {winner && (
+        {/* Winner Spotlight - Only for final leaderboard */}
+        {winner && isFinalLeaderboard && (
           <Card className="border-2 border-yellow-500 bg-gradient-to-br from-yellow-500/10 via-background to-orange-500/10 animate-in zoom-in duration-700 delay-300">
             <CardContent className="pt-8 pb-8 text-center space-y-4">
               <Crown className="w-16 h-16 text-yellow-500 mx-auto animate-pulse" />
@@ -174,7 +253,7 @@ const Leaderboard = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Trophy className="w-5 h-5" />
-              Final Rankings
+              {isFinalLeaderboard ? 'Final Rankings' : 'Current Rankings'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -265,34 +344,42 @@ const Leaderboard = () => {
           </CardContent>
         </Card>
 
-        {/* Play Again Section */}
-        <Card className="border-primary/50 bg-primary/5 animate-in fade-in duration-700 delay-1200">
-          <CardContent className="pt-6 pb-6 text-center space-y-4">
-            <h3 className="text-xl font-bold">Want to Play Again?</h3>
-            <p className="text-muted-foreground">
-              Create a new quiz room or join another one with a code
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button onClick={() => navigate('/create')} size="lg">
-                Create New Quiz
-              </Button>
-              <Button onClick={() => navigate('/join')} variant="outline" size="lg">
-                Join Another Quiz
-              </Button>
-            </div>
-            {currentRoom?.code && (
-              <div className="pt-4 border-t">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Share this room code with others:
-                </p>
-                <Button onClick={copyRoomCode} variant="outline">
-                  <Copy className="w-4 h-4 mr-2" />
-                  {currentRoom.code}
+        {/* Round Statistics */}
+        <RoundStatistics 
+          roundStats={roundStatistics} 
+          isFinalLeaderboard={isFinalLeaderboard}
+        />
+
+        {/* Play Again Section - Only for final leaderboard */}
+        {isFinalLeaderboard && (
+          <Card className="border-primary/50 bg-primary/5 animate-in fade-in duration-700 delay-1200">
+            <CardContent className="pt-6 pb-6 text-center space-y-4">
+              <h3 className="text-xl font-bold">Want to Play Again?</h3>
+              <p className="text-muted-foreground">
+                Create a new quiz room or join another one with a code
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button onClick={() => navigate('/create')} size="lg">
+                  Create New Quiz
+                </Button>
+                <Button onClick={() => navigate('/join')} variant="outline" size="lg">
+                  Join Another Quiz
                 </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
+              {currentRoom?.code && (
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Share this room code with others:
+                  </p>
+                  <Button onClick={copyRoomCode} variant="outline">
+                    <Copy className="w-4 h-4 mr-2" />
+                    {currentRoom.code}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

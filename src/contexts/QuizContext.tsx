@@ -24,6 +24,7 @@ interface FirebaseRoom {
   isStarted: boolean;
   isCompleted: boolean;
   currentQuestionIndex: number;
+  showLeaderboard: boolean;
   createdAt: string;
 }
 
@@ -35,6 +36,7 @@ interface FirebasePlayer {
   isReady: boolean;
   isOnline: boolean;
   joinedAt: string;
+  rejoinedAt?: string;
   userId: string;
 }
 
@@ -63,6 +65,7 @@ export interface QuizRoom {
   isStarted: boolean;
   isCompleted: boolean;
   currentQuestionIndex: number;
+  showLeaderboard: boolean;
   createdAt: Date;
 }
 
@@ -74,6 +77,8 @@ export interface Player {
   isReady: boolean;
   isOnline: boolean;
   joinedAt: Date;
+  rejoinedAt?: Date;
+  userId: string;
 }
 
 export interface CurrentQuestion {
@@ -82,6 +87,7 @@ export interface CurrentQuestion {
   scoringMode: ScoringMode;
   timeLimit: number;
   startedAt: Date;
+  endsAt: Date;
 }
 
 export interface Answer {
@@ -93,12 +99,23 @@ export interface Answer {
   pointsEarned: number;
 }
 
+export interface RoundStatistics {
+  questionIndex: number;
+  questionText: string;
+  correctAnswer: string | string[];
+  scoringMode: ScoringMode;
+  basePoints: number;
+  timeLimit: number;
+  answers: Answer[];
+}
+
 interface QuizContextType {
   // Room state
   currentRoom: QuizRoom | null;
   players: Player[];
   currentQuestion: CurrentQuestion | null;
   answers: Answer[];
+  roundStatistics: RoundStatistics[];
   currentUserId: string | null;
   
   // Actions
@@ -110,11 +127,23 @@ interface QuizContextType {
   publishRoom: (roomId: string) => Promise<void>;
   startQuiz: (roomId: string) => Promise<void>;
   publishQuestion: (roomId: string, questionIndex: number, basePoints: number, scoringMode: ScoringMode, timeLimit: number) => Promise<void>;
-  submitAnswer: (playerId: string, answer: string) => Promise<void>;
+  submitAnswer: (playerId: string, answer: string, timeTaken: number) => Promise<void>;
   setPlayerReady: (playerId: string, isReady: boolean) => Promise<void>;
   nextQuestion: (roomId: string) => Promise<void>;
   endQuiz: (roomId: string) => Promise<void>;
+  showLeaderboard: (roomId: string) => Promise<void>;
+  hideLeaderboard: (roomId: string) => Promise<void>;
   leaveRoom: (playerId: string) => Promise<void>;
+  
+  // Admin room management
+  getAllRooms: () => Promise<QuizRoom[]>;
+  deleteRoom: (roomId: string) => Promise<void>;
+  updateRoom: (roomId: string, updates: Partial<QuizRoom>) => Promise<void>;
+  
+  // Utility functions
+  clearRoomState: () => void;
+  loadRoom: (roomId: string) => void;
+  canRejoinRoom: (code: string) => Promise<{ canRejoin: boolean; playerName?: string; message?: string }>;
 }
 
 const QuizContext = createContext<QuizContextType | undefined>(undefined);
@@ -132,6 +161,8 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<CurrentQuestion | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [roundStatistics, setRoundStatistics] = useState<RoundStatistics[]>([]);
+  const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const { currentUser, hasPermission } = useAuth();
   
   // Use authenticated user's userId
@@ -141,9 +172,40 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   };
 
+  // Helper function to check if current user owns a room
+  const checkRoomOwnership = async (roomId: string): Promise<boolean> => {
+    if (!currentUserId) return false;
+    
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
+    
+    if (!snapshot.exists()) return false;
+    
+    const room = snapshot.val();
+    return room.ownerId === currentUserId;
+  };
+
+  // Helper function to check if user can manage a room (owner or admin)
+  const canManageRoom = async (roomId: string): Promise<boolean> => {
+    if (!currentUserId) return false;
+    
+    // Admins can manage any room
+    if (hasPermission('canManageUsers')) return true;
+    
+    // Regular users can only manage their own rooms
+    return await checkRoomOwnership(roomId);
+  };
+
   const createRoom = async (name: string, ownerName: string, maxPlayers: number): Promise<string> => {
     if (!currentUserId) throw new Error('User not authenticated');
     if (!hasPermission('canCreateRooms')) throw new Error('You do not have permission to create rooms');
+    
+    // Clear any existing room state to prevent redirects
+    setCurrentRoom(null);
+    setPlayers([]);
+    setCurrentQuestion(null);
+    setAnswers([]);
+    setRoundStatistics([]);
     
     const roomRef = push(ref(database, 'rooms'));
     const roomId = roomRef.key!;
@@ -160,10 +222,15 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       isStarted: false,
       isCompleted: false,
       currentQuestionIndex: -1,
+      showLeaderboard: false,
       createdAt: new Date().toISOString()
     };
     
     await set(roomRef, newRoom);
+    
+    // Set the room ID in state so listeners pick it up
+    setCurrentRoomId(roomId);
+    
     return roomId;
   };
 
@@ -191,13 +258,50 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     
     if (!foundRoom || !foundRoomId) throw new Error('Room not found');
     if (!foundRoom.isPublished) throw new Error('Room not published yet');
-    if (foundRoom.isStarted) throw new Error('Quiz already started');
+    if (foundRoom.isCompleted) throw new Error('Quiz has already ended');
     
-    // Check player count
+    // Check if user already has a player in this room (rejoin scenario)
     const playersRef = ref(database, 'players');
     const playersSnapshot = await get(playersRef);
-    let currentPlayerCount = 0;
+    let existingPlayer: FirebasePlayer | null = null;
+    let existingPlayerId: string | null = null;
     
+    if (playersSnapshot.exists()) {
+      const allPlayers = playersSnapshot.val() as Record<string, FirebasePlayer>;
+      for (const [playerId, player] of Object.entries(allPlayers)) {
+        if (player.roomId === foundRoomId && player.userId === currentUserId) {
+          existingPlayer = player;
+          existingPlayerId = playerId;
+          break;
+        }
+      }
+    }
+    
+    // If player exists, rejoin them (preserve their progress)
+    if (existingPlayer && existingPlayerId) {
+      // Update player status to online
+      const playerRef = ref(database, `players/${existingPlayerId}`);
+      await update(playerRef, {
+        isOnline: true,
+        name: playerName, // Update name in case they want to change it
+        rejoinedAt: new Date().toISOString()
+      });
+      
+      // Store player ID and room ID in localStorage and state
+      localStorage.setItem('current_player_id', existingPlayerId);
+      localStorage.setItem('current_room_id', foundRoomId);
+      setCurrentRoomId(foundRoomId);
+      
+      return; // Exit early for rejoin
+    }
+    
+    // If quiz has started, only allow rejoining (not new joins)
+    if (foundRoom.isStarted) {
+      throw new Error('Quiz has started. You can only rejoin if you were previously in this room.');
+    }
+    
+    // Check player count for new joins
+    let currentPlayerCount = 0;
     if (playersSnapshot.exists()) {
       const allPlayers = playersSnapshot.val() as Record<string, FirebasePlayer>;
       currentPlayerCount = Object.values(allPlayers).filter(
@@ -209,7 +313,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       throw new Error('Room is full');
     }
     
-    // Create player
+    // Create new player (only for new joins before quiz starts)
     const playerRef = push(ref(database, 'players'));
     const playerId = playerRef.key!;
     
@@ -226,12 +330,20 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     
     await set(playerRef, newPlayer);
     
-    // Store player ID in localStorage
+    // Store player ID and room ID in localStorage and state
     localStorage.setItem('current_player_id', playerId);
     localStorage.setItem('current_room_id', foundRoomId);
+    setCurrentRoomId(foundRoomId);
   };
 
   const addQuestion = async (roomId: string, question: Omit<Question, 'id'>): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to add questions to this room');
+    }
+    
     const roomRef = ref(database, `rooms/${roomId}`);
     const snapshot = await get(roomRef);
     
@@ -250,6 +362,13 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateQuestion = async (roomId: string, questionId: string, updates: Partial<Question>): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to edit questions in this room');
+    }
+    
     const roomRef = ref(database, `rooms/${roomId}`);
     const snapshot = await get(roomRef);
     
@@ -266,6 +385,13 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deleteQuestion = async (roomId: string, questionId: string): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to delete questions from this room');
+    }
+    
     const roomRef = ref(database, `rooms/${roomId}`);
     const snapshot = await get(roomRef);
     
@@ -277,6 +403,13 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const publishRoom = async (roomId: string): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to publish this room');
+    }
+    
     const roomRef = ref(database, `rooms/${roomId}`);
     const snapshot = await get(roomRef);
     
@@ -291,6 +424,13 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const startQuiz = async (roomId: string): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to start this room\'s quiz');
+    }
+    
     await update(ref(database, `rooms/${roomId}`), { isStarted: true });
   };
 
@@ -301,6 +441,13 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     scoringMode: ScoringMode,
     timeLimit: number
   ): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to publish questions in this room');
+    }
+    
     const roomRef = ref(database, `rooms/${roomId}`);
     const snapshot = await get(roomRef);
     
@@ -313,14 +460,18 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     
     await update(roomRef, { currentQuestionIndex: questionIndex });
     
-    // Set current question in Firebase
+    // Set current question in Firebase with server-side timing
     const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
+    const now = new Date();
+    const endsAt = new Date(now.getTime() + (timeLimit * 1000)); // Add timeLimit seconds
+    
     await set(currentQuestionRef, {
       question,
       basePoints,
       scoringMode,
       timeLimit,
-      startedAt: new Date().toISOString()
+      startedAt: now.toISOString(),
+      endsAt: endsAt.toISOString()
     });
     
     // Clear previous answers
@@ -328,7 +479,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     await remove(answersRef);
   };
 
-  const submitAnswer = async (playerId: string, answer: string): Promise<void> => {
+  const submitAnswer = async (playerId: string, answer: string, timeTaken: number): Promise<void> => {
     if (!currentQuestion || !currentRoom) throw new Error('No active question');
     
     const playersRef = ref(database, 'players');
@@ -347,8 +498,6 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     }
     
     if (!player) throw new Error('Player not found');
-    
-    const timeTaken = (Date.now() - new Date(currentQuestion.startedAt).getTime()) / 1000;
     const isCorrect = Array.isArray(currentQuestion.question.correctAnswer)
       ? currentQuestion.question.correctAnswer.includes(answer)
       : currentQuestion.question.correctAnswer === answer;
@@ -363,7 +512,12 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     if (isCorrect) {
       switch (currentQuestion.scoringMode) {
         case 'time-based':
-          pointsEarned = Math.max(0, currentQuestion.basePoints - Math.floor(timeTaken));
+          // Eg: 30 points, answer in 0-3 secs = 30 points, answer in 4-6 secs = 27 points, answer in 7-9 secs = 24 points, etc.
+
+          const range = currentQuestion.timeLimit / 10;
+          const mod = Math.ceil((currentQuestion.timeLimit - timeTaken) / range);
+          pointsEarned = currentQuestion.basePoints * (mod / 10);
+          if (pointsEarned < 0) pointsEarned = 0;
           break;
         case 'order-based':
           if (correctAnswersCount === 0) pointsEarned = currentQuestion.basePoints;
@@ -413,17 +567,83 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const nextQuestion = async (roomId: string): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to manage this room\'s quiz');
+    }
+    
+    // Store current round statistics before clearing
+    if (currentQuestion && currentRoom && answers.length > 0) {
+      const roundStats: RoundStatistics = {
+        questionIndex: currentRoom.currentQuestionIndex,
+        questionText: currentQuestion.question.text,
+        correctAnswer: currentQuestion.question.correctAnswer,
+        scoringMode: currentQuestion.scoringMode,
+        basePoints: currentQuestion.basePoints,
+        timeLimit: currentQuestion.timeLimit,
+        answers: [...answers]
+      };
+      
+      setRoundStatistics(prev => [...prev, roundStats]);
+    }
+    
     // Clear current question
     const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
     await remove(currentQuestionRef);
   };
 
   const endQuiz = async (roomId: string): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to end this room\'s quiz');
+    }
+    
+    // Store final round statistics if there's a current question
+    if (currentQuestion && currentRoom && answers.length > 0) {
+      const roundStats: RoundStatistics = {
+        questionIndex: currentRoom.currentQuestionIndex,
+        questionText: currentQuestion.question.text,
+        correctAnswer: currentQuestion.question.correctAnswer,
+        scoringMode: currentQuestion.scoringMode,
+        basePoints: currentQuestion.basePoints,
+        timeLimit: currentQuestion.timeLimit,
+        answers: [...answers]
+      };
+      
+      setRoundStatistics(prev => [...prev, roundStats]);
+    }
+    
     await update(ref(database, `rooms/${roomId}`), { isCompleted: true });
     
     // Clear current question
     const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
     await remove(currentQuestionRef);
+  };
+
+  const showLeaderboard = async (roomId: string): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to show leaderboard for this room');
+    }
+    
+    await update(ref(database, `rooms/${roomId}`), { showLeaderboard: true });
+  };
+
+  const hideLeaderboard = async (roomId: string): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to hide leaderboard for this room');
+    }
+    
+    await update(ref(database, `rooms/${roomId}`), { showLeaderboard: false });
   };
 
   const leaveRoom = async (playerId: string): Promise<void> => {
@@ -441,10 +661,167 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Admin room management functions
+  const getAllRooms = async (): Promise<QuizRoom[]> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    const roomsRef = ref(database, 'rooms');
+    const snapshot = await get(roomsRef);
+    
+    if (!snapshot.exists()) {
+      return [];
+    }
+    
+    const rooms = snapshot.val() as Record<string, FirebaseRoom>;
+    const allRooms = Object.values(rooms).map(room => ({
+      ...room,
+      createdAt: new Date(room.createdAt)
+    }));
+    
+    // If user is admin, return all rooms
+    if (hasPermission('canManageUsers')) {
+      return allRooms;
+    }
+    
+    // If user is not admin, only return rooms they own
+    return allRooms.filter(room => room.ownerId === currentUserId);
+  };
+
+  const deleteRoom = async (roomId: string): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room (owner or admin)
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to delete this room');
+    }
+    
+    // Delete the room
+    const roomRef = ref(database, `rooms/${roomId}`);
+    await remove(roomRef);
+    
+    // Delete all players in this room
+    const playersRef = ref(database, 'players');
+    const playersSnapshot = await get(playersRef);
+    
+    if (playersSnapshot.exists()) {
+      const allPlayers = playersSnapshot.val() as Record<string, FirebasePlayer>;
+      const deletePromises = Object.entries(allPlayers)
+        .filter(([, player]) => player.roomId === roomId)
+        .map(([playerId]) => remove(ref(database, `players/${playerId}`)));
+      
+      await Promise.all(deletePromises);
+    }
+    
+    // Delete current question if exists
+    const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
+    await remove(currentQuestionRef);
+    
+    // Delete answers if exist
+    const answersRef = ref(database, `answers/${roomId}`);
+    await remove(answersRef);
+  };
+
+  const updateRoom = async (roomId: string, updates: Partial<QuizRoom>): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room (owner or admin)
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to update this room');
+    }
+    
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const snapshot = await get(roomRef);
+    
+    if (!snapshot.exists()) throw new Error('Room not found');
+    
+    // Convert Date objects to strings for Firebase
+    const firebaseUpdates: any = { ...updates };
+    if (firebaseUpdates.createdAt instanceof Date) {
+      firebaseUpdates.createdAt = firebaseUpdates.createdAt.toISOString();
+    }
+    
+    await update(roomRef, firebaseUpdates);
+  };
+
+  const clearRoomState = () => {
+    setCurrentRoom(null);
+    setPlayers([]);
+    setCurrentQuestion(null);
+    setAnswers([]);
+    setRoundStatistics([]);
+    setCurrentRoomId(null);
+    localStorage.removeItem('current_room_id');
+    localStorage.removeItem('current_player_id');
+  };
+
+  const loadRoom = (roomId: string) => {
+    // Set the room ID in localStorage and state
+    localStorage.setItem('current_room_id', roomId);
+    setCurrentRoomId(roomId);
+  };
+
+  const canRejoinRoom = async (code: string): Promise<{ canRejoin: boolean; playerName?: string; message?: string }> => {
+    if (!currentUserId) {
+      return { canRejoin: false, message: 'User not authenticated' };
+    }
+
+    try {
+      // Find room by code
+      const roomsRef = ref(database, 'rooms');
+      const snapshot = await get(roomsRef);
+      
+      let foundRoomId: string | null = null;
+      
+      if (snapshot.exists()) {
+        const rooms = snapshot.val() as Record<string, FirebaseRoom>;
+        for (const [roomId, room] of Object.entries(rooms)) {
+          if (room.code === code) {
+            foundRoomId = roomId;
+            break;
+          }
+        }
+      }
+      
+      if (!foundRoomId) {
+        return { canRejoin: false, message: 'Room not found' };
+      }
+
+      // Check if user has a player in this room
+      const playersRef = ref(database, 'players');
+      const playersSnapshot = await get(playersRef);
+      
+      if (playersSnapshot.exists()) {
+        const allPlayers = playersSnapshot.val() as Record<string, FirebasePlayer>;
+        for (const [playerId, player] of Object.entries(allPlayers)) {
+          if (player.roomId === foundRoomId && player.userId === currentUserId) {
+            return { 
+              canRejoin: true, 
+              playerName: player.name,
+              message: 'You can rejoin this room'
+            };
+          }
+        }
+      }
+      
+      return { canRejoin: false, message: 'You were not previously in this room' };
+    } catch (error) {
+      return { canRejoin: false, message: 'Error checking rejoin status' };
+    }
+  };
+
   // Real-time listeners
   useEffect(() => {
-    const roomId = localStorage.getItem('current_room_id');
-    if (!roomId) return;
+    // Use currentRoomId state instead of localStorage directly
+    const roomId = currentRoomId || localStorage.getItem('current_room_id');
+    
+    if (!roomId) {
+      // Clear room state if no room ID
+      setCurrentRoom(null);
+      setPlayers([]);
+      setCurrentQuestion(null);
+      setAnswers([]);
+      return;
+    }
 
     // Listen to room changes
     const roomRef = ref(database, `rooms/${roomId}`);
@@ -455,6 +832,8 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
           ...data,
           createdAt: new Date(data.createdAt)
         });
+      } else {
+        setCurrentRoom(null);
       }
     });
 
@@ -467,7 +846,8 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
           .filter((p) => p.roomId === roomId)
           .map((p) => ({
             ...p,
-            joinedAt: new Date(p.joinedAt)
+            joinedAt: new Date(p.joinedAt),
+            rejoinedAt: p.rejoinedAt ? new Date(p.rejoinedAt) : undefined
           }));
         setPlayers(roomPlayers as Player[]);
       } else {
@@ -482,7 +862,8 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         const data = snapshot.val();
         setCurrentQuestion({
           ...data,
-          startedAt: new Date(data.startedAt)
+          startedAt: new Date(data.startedAt),
+          endsAt: new Date(data.endsAt)
         });
       } else {
         setCurrentQuestion(null);
@@ -506,7 +887,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       unsubscribeQuestion();
       unsubscribeAnswers();
     };
-  }, []);
+  }, [currentRoomId]); // Now depends on currentRoomId state
 
   return (
     <QuizContext.Provider
@@ -515,6 +896,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         players,
         currentQuestion,
         answers,
+        roundStatistics,
         currentUserId,
         createRoom,
         joinRoom,
@@ -528,7 +910,15 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         setPlayerReady,
         nextQuestion,
         endQuiz,
-        leaveRoom
+        showLeaderboard,
+        hideLeaderboard,
+        leaveRoom,
+        getAllRooms,
+        deleteRoom,
+        updateRoom,
+        clearRoomState,
+        loadRoom,
+        canRejoinRoom
       }}
     >
       {children}

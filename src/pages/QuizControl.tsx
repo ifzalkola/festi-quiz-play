@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQuiz, ScoringMode } from '@/contexts/QuizContext';
-import { ArrowLeft, Users, Play, SkipForward, Trophy, CheckCircle, Timer } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { ArrowLeft, Users, Play, SkipForward, Trophy, CheckCircle, Timer, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import PlayerList from '@/components/quiz/PlayerList';
 import { Progress } from '@/components/ui/progress';
@@ -14,7 +15,8 @@ import { Progress } from '@/components/ui/progress';
 const QuizControl = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { currentRoom, players, currentQuestion, answers, publishQuestion, nextQuestion, endQuiz } = useQuiz();
+  const { currentRoom, players, currentQuestion, answers, publishQuestion, nextQuestion, endQuiz, showLeaderboard, loadRoom } = useQuiz();
+  const { currentUser, hasPermission } = useAuth();
   
   const [questionIndex, setQuestionIndex] = useState(0);
   const [basePoints, setBasePoints] = useState(100);
@@ -22,19 +24,52 @@ const QuizControl = () => {
   const [timeLimit, setTimeLimit] = useState(30);
   const [timeRemaining, setTimeRemaining] = useState(30);
   const [isQuestionActive, setIsQuestionActive] = useState(false);
+  const [timerStarted, setTimerStarted] = useState<Date | null>(null);
 
-  // Timer countdown
+  // Load the room when component mounts
   useEffect(() => {
-    if (!isQuestionActive || !currentQuestion) return;
+    if (roomId) {
+      loadRoom(roomId);
+    }
+  }, [roomId, loadRoom]);
+
+  // Sync questionIndex with room's currentQuestionIndex
+  useEffect(() => {
+    if (currentRoom) {
+      // currentQuestionIndex is 0-based, questionIndex should be 1-based for display
+      // If currentQuestionIndex is -1, we're at the start, so show question 1
+      // Ensure questionIndex is always at least 1
+      setQuestionIndex(Math.max(1, currentRoom.currentQuestionIndex + 1));
+    }
+  }, [currentRoom]);
+
+  // Check if current user is the room owner or admin
+  const isRoomOwner = currentRoom?.ownerId === currentUser?.userId;
+  const isAdmin = hasPermission('canManageUsers');
+  const canControlQuiz = isRoomOwner || isAdmin;
+
+  // Timer countdown - starts when question becomes active
+  useEffect(() => {
+    if (!isQuestionActive || !currentQuestion) {
+      setTimerStarted(null);
+      return;
+    }
+
+    // Start timer when question becomes active
+    const startTime = new Date();
+    setTimerStarted(startTime);
+    setTimeRemaining(currentQuestion.timeLimit);
 
     const interval = setInterval(() => {
-      const elapsed = (Date.now() - new Date(currentQuestion.startedAt).getTime()) / 1000;
+      const now = new Date();
+      const elapsed = (now.getTime() - startTime.getTime()) / 1000;
       const remaining = Math.max(0, currentQuestion.timeLimit - elapsed);
       setTimeRemaining(Math.ceil(remaining));
 
       if (remaining <= 0) {
         setIsQuestionActive(false);
         toast.info('Time is up!');
+        clearInterval(interval);
       }
     }, 100);
 
@@ -65,15 +100,45 @@ const QuizControl = () => {
     );
   }
 
-  const currentQ = currentRoom.questions?.[questionIndex];
-  const totalQuestions = currentRoom.questions?.length || 0;
-  const progress = totalQuestions > 0 ? (questionIndex / totalQuestions) * 100 : 0;
+  // Security check: Only room owners and admins can access quiz control
+  if (!canControlQuiz) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card>
+          <CardContent className="pt-6 text-center space-y-4">
+            <p className="text-lg font-semibold">Access Denied</p>
+            <p className="text-muted-foreground">
+              You do not have permission to control this quiz. Only the room owner can access quiz controls.
+            </p>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={() => navigate('/')} variant="outline">
+                Go Home
+              </Button>
+              <Button onClick={() => navigate(`/room/${roomId}`)}>
+                View Room
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const totalQuestions = currentRoom?.questions?.length || 0;
+  const currentQ = totalQuestions > 0 && questionIndex > 0 ? currentRoom?.questions?.[questionIndex - 1] : null;
+  
+  // Progress should show how many questions have been completed
+  // If currentQuestionIndex is -1, no questions completed yet (0%)
+  // If currentQuestionIndex is 0, first question completed (100/3 = 33% for 3 questions)
+  const completedQuestions = Math.max(0, (currentRoom?.currentQuestionIndex || -1) + 1);
+  const progress = totalQuestions > 0 ? (completedQuestions / totalQuestions) * 100 : 0;
+
 
   const handlePublishQuestion = async () => {
     if (!roomId || !currentQ) return;
     
     try {
-      await publishQuestion(roomId, questionIndex, basePoints, scoringMode, timeLimit);
+      await publishQuestion(roomId, questionIndex - 1, basePoints, scoringMode, timeLimit);
       setIsQuestionActive(true);
       setTimeRemaining(timeLimit);
       toast.success('Question published to all players!');
@@ -88,7 +153,7 @@ const QuizControl = () => {
     setIsQuestionActive(false);
     await nextQuestion(roomId);
     
-    if (questionIndex < totalQuestions - 1) {
+    if (questionIndex < totalQuestions) {
       setQuestionIndex(questionIndex + 1);
       toast.success('Ready for next question');
     } else {
@@ -105,6 +170,17 @@ const QuizControl = () => {
       navigate(`/leaderboard/${roomId}`);
     } catch (error) {
       toast.error('Failed to end quiz');
+    }
+  };
+
+  const handleShowLeaderboard = async () => {
+    if (!roomId) return;
+    
+    try {
+      await showLeaderboard(roomId);
+      navigate(`/leaderboard/${roomId}`);
+    } catch (error) {
+      toast.error('Failed to show leaderboard to players');
     }
   };
 
@@ -133,7 +209,7 @@ const QuizControl = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="font-medium">
-                  Question {questionIndex + 1} of {totalQuestions}
+                  Question {questionIndex} of {totalQuestions}
                 </span>
                 <span className="text-muted-foreground">
                   {Math.round(progress)}% Complete
@@ -151,7 +227,7 @@ const QuizControl = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  Question {questionIndex + 1}
+                  Question {questionIndex}
                   {isQuestionActive && (
                     <span className="flex items-center gap-1 text-sm font-normal text-muted-foreground">
                       <Timer className="w-4 h-4" />
@@ -270,30 +346,65 @@ const QuizControl = () => {
                           </Card>
                         </div>
 
-                        <Button 
-                          onClick={handleNextQuestion} 
-                          className="w-full" 
-                          size="lg"
-                          variant={questionIndex === totalQuestions - 1 ? "destructive" : "default"}
-                        >
-                          <SkipForward className="w-4 h-4 mr-2" />
-                          {questionIndex === totalQuestions - 1 ? 'Finish Quiz' : 'Next Question'}
-                        </Button>
+                        <div className="grid grid-cols-2 gap-4">
+                          <Button 
+                            onClick={handleNextQuestion} 
+                            className="w-full" 
+                            size="lg"
+                            variant={questionIndex === totalQuestions ? "destructive" : "default"}
+                          >
+                            <SkipForward className="w-4 h-4 mr-2" />
+                            {questionIndex === totalQuestions ? 'Finish Quiz' : 'Next Question'}
+                          </Button>
+                          <Button 
+                            onClick={handleShowLeaderboard} 
+                            className="w-full" 
+                            size="lg"
+                            variant="outline"
+                          >
+                            <BarChart3 className="w-4 h-4 mr-2" />
+                            Show Leaderboard
+                          </Button>
+                        </div>
                       </div>
                     )}
 
                     {/* Waiting for next question */}
                     {!isQuestionActive && currentQuestion && (
                       <div className="pt-4 border-t">
-                        <Button onClick={handleNextQuestion} className="w-full" size="lg">
-                          <SkipForward className="w-4 h-4 mr-2" />
-                          {questionIndex === totalQuestions - 1 ? 'View Results' : 'Continue to Next Question'}
-                        </Button>
+                        <div className="grid grid-cols-2 gap-4">
+                          <Button onClick={handleNextQuestion} className="w-full" size="lg">
+                            <SkipForward className="w-4 h-4 mr-2" />
+                            {questionIndex === totalQuestions ? 'View Final Results' : 'Continue to Next Question'}
+                          </Button>
+                          <Button 
+                            onClick={handleShowLeaderboard} 
+                            className="w-full" 
+                            size="lg"
+                            variant="outline"
+                          >
+                            <BarChart3 className="w-4 h-4 mr-2" />
+                            Show Current Leaderboard
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </>
                 ) : (
-                  <p className="text-center text-muted-foreground py-8">No questions available</p>
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-2">
+                      {totalQuestions === 0 ? 'No questions available' : 'Question not found'}
+                    </p>
+                    {totalQuestions === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Add questions to this room to start the quiz
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Question {questionIndex} of {totalQuestions} not found
+                      </p>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>

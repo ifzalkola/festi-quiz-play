@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 
 const CreateRoom = () => {
   const navigate = useNavigate();
-  const { createRoom } = useQuiz();
+  const { createRoom, clearRoomState } = useQuiz();
   const [roomName, setRoomName] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [maxPlayers, setMaxPlayers] = useState(10);
@@ -31,6 +31,9 @@ const CreateRoom = () => {
 
     setIsLoading(true);
     try {
+      // Clear any existing room state to prevent redirects
+      clearRoomState();
+      
       const roomId = await createRoom(roomName, ownerName, maxPlayers);
       localStorage.setItem('current_room_id', roomId);
       toast.success('Room created successfully!');

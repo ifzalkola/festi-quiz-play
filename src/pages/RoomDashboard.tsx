@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQuiz, Question, QuestionType } from '@/contexts/QuizContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Copy, Users, Plus, Play, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import QuestionManager from '@/components/quiz/QuestionManager';
@@ -12,7 +13,20 @@ import PlayerList from '@/components/quiz/PlayerList';
 const RoomDashboard = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { currentRoom, players, publishRoom, startQuiz } = useQuiz();
+  const { currentRoom, players, publishRoom, startQuiz, loadRoom } = useQuiz();
+  const { currentUser, hasPermission } = useAuth();
+
+  // Load the room when component mounts
+  useEffect(() => {
+    if (roomId) {
+      loadRoom(roomId);
+    }
+  }, [roomId, loadRoom]);
+
+  // Check if current user is the room owner or admin
+  const isRoomOwner = currentRoom?.ownerId === currentUser?.userId;
+  const isAdmin = hasPermission('canManageUsers');
+  const canManageRoom = isRoomOwner || isAdmin;
 
   const copyRoomCode = () => {
     if (currentRoom) {
@@ -49,6 +63,13 @@ const RoomDashboard = () => {
     }
   };
 
+  // Redirect to leaderboard when quiz is completed
+  useEffect(() => {
+    if (currentRoom?.isCompleted) {
+      navigate(`/leaderboard/${roomId}`);
+    }
+  }, [currentRoom, roomId, navigate]);
+
   if (!currentRoom) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -58,6 +79,30 @@ const RoomDashboard = () => {
             <Button onClick={() => navigate('/')} className="mt-4">
               Go Home
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Security check: Only room owners and admins can manage the room
+  if (!canManageRoom) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card>
+          <CardContent className="pt-6 text-center space-y-4">
+            <p className="text-lg font-semibold">Access Denied</p>
+            <p className="text-muted-foreground">
+              You do not have permission to manage this room. Only the room owner can access room controls.
+            </p>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={() => navigate('/')} variant="outline">
+                Go Home
+              </Button>
+              <Button onClick={() => navigate('/join')}>
+                Join a Room
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -74,9 +119,18 @@ const RoomDashboard = () => {
           </Button>
           
           {currentRoom.isPublished && !currentRoom.isStarted && (
-            <Button onClick={handleStartQuiz} size="lg">
+            <Button 
+              onClick={handleStartQuiz} 
+              size="lg"
+              disabled={players?.filter(p => p?.isReady)?.length === 0}
+            >
               <Play className="w-4 h-4 mr-2" />
               Start Quiz
+              {players?.filter(p => p?.isReady)?.length === 0 && (
+                <span className="ml-2 text-xs opacity-75">
+                  (Need at least 1 ready player)
+                </span>
+              )}
             </Button>
           )}
         </div>
@@ -128,10 +182,30 @@ const RoomDashboard = () => {
               <CardTitle className="flex items-center gap-2">
                 <Users className="w-5 h-5" />
                 Players ({players?.length || 0}/{currentRoom.maxPlayers || 0})
+                {currentRoom.isPublished && (
+                  <span className="text-sm text-muted-foreground">
+                    • {players?.filter(p => p?.isReady)?.length || 0} ready
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <PlayerList players={players} showReady={currentRoom.isPublished} />
+              {currentRoom.isPublished && (
+                <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Ready Players:</span>
+                    <span className="font-medium">
+                      {players?.filter(p => p?.isReady)?.length || 0} / {players?.length || 0}
+                    </span>
+                  </div>
+                  {players?.filter(p => p?.isReady)?.length === 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Waiting for players to mark themselves ready...
+                    </p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

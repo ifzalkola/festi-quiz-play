@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import Index from "./pages/Index";
 import CreateRoom from "./pages/CreateRoom";
+import EditRoom from "./pages/EditRoom";
 import JoinRoom from "./pages/JoinRoom";
 import RoomDashboard from "./pages/RoomDashboard";
 import PlayerLobby from "./pages/PlayerLobby";
@@ -43,6 +44,11 @@ const App = () => (
               <Route path="/create" element={
                 <ProtectedRoute>
                   <CreateRoom />
+                </ProtectedRoute>
+              } />
+              <Route path="/edit-room/:roomId" element={
+                <ProtectedRoute>
+                  <EditRoom />
                 </ProtectedRoute>
               } />
               <Route path="/join" element={

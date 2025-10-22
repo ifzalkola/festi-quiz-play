@@ -17,20 +17,35 @@ const PlayQuiz = () => {
   const [hasAnswered, setHasAnswered] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [playerId, setPlayerId] = useState<string | null>(null);
+  const [timerStarted, setTimerStarted] = useState<Date | null>(null);
 
   useEffect(() => {
     const storedPlayerId = localStorage.getItem('current_player_id');
     setPlayerId(storedPlayerId);
   }, []);
 
-  // Timer countdown
+  // Timer countdown - starts when question appears on screen
   useEffect(() => {
-    if (!currentQuestion) return;
+    if (!currentQuestion) {
+      setTimerStarted(null);
+      setTimeRemaining(0);
+      return;
+    }
+
+    // Start timer when question appears
+    const startTime = new Date();
+    setTimerStarted(startTime);
+    setTimeRemaining(currentQuestion.timeLimit);
 
     const interval = setInterval(() => {
-      const elapsed = (Date.now() - new Date(currentQuestion.startedAt).getTime()) / 1000;
+      const now = new Date();
+      const elapsed = (now.getTime() - startTime.getTime()) / 1000;
       const remaining = Math.max(0, currentQuestion.timeLimit - elapsed);
       setTimeRemaining(remaining);
+
+      if (remaining <= 0) {
+        clearInterval(interval);
+      }
     }, 100);
 
     return () => clearInterval(interval);
@@ -53,6 +68,24 @@ const PlayQuiz = () => {
     }
   }, [currentRoom, navigate]);
 
+  // Redirect to leaderboard when host shows it mid-quiz
+  useEffect(() => {
+    if (currentRoom?.showLeaderboard && currentRoom?.isStarted && !currentRoom?.isCompleted) {
+      const roomId = localStorage.getItem('current_room_id');
+      navigate(`/leaderboard/${roomId}`);
+    }
+  }, [currentRoom, navigate]);
+
+  // Return to quiz when leaderboard is hidden
+  useEffect(() => {
+    if (!currentRoom?.showLeaderboard && currentRoom?.isStarted && !currentRoom?.isCompleted) {
+      // Check if we're currently on the leaderboard page
+      if (window.location.pathname.includes('/leaderboard/')) {
+        navigate('/play');
+      }
+    }
+  }, [currentRoom, navigate]);
+
   if (!currentRoom) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -69,8 +102,8 @@ const PlayQuiz = () => {
   }
 
   const handleSubmitAnswer = async () => {
-    if (!playerId) {
-      toast.error('Player ID not found');
+    if (!playerId || !timerStarted) {
+      toast.error('Player ID not found or timer not started');
       return;
     }
 
@@ -81,8 +114,12 @@ const PlayQuiz = () => {
       return;
     }
 
+    // Calculate time taken since timer started
+    const now = new Date();
+    const timeTaken = (now.getTime() - timerStarted.getTime()) / 1000;
+
     try {
-      await submitAnswer(playerId, answer);
+      await submitAnswer(playerId, answer, timeTaken);
       setHasAnswered(true);
       toast.success('Answer submitted!');
     } catch (error) {

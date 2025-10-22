@@ -1,19 +1,44 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { useQuiz } from '@/contexts/QuizContext';
-import { ArrowLeft, Users } from 'lucide-react';
+import { ArrowLeft, Users, RefreshCw, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const JoinRoom = () => {
   const navigate = useNavigate();
-  const { joinRoom } = useQuiz();
+  const { joinRoom, canRejoinRoom } = useQuiz();
   const [roomCode, setRoomCode] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [rejoinInfo, setRejoinInfo] = useState<{ canRejoin: boolean; playerName?: string; message?: string } | null>(null);
+  const [isCheckingRejoin, setIsCheckingRejoin] = useState(false);
+
+  const handleCheckRejoin = async () => {
+    if (!roomCode.trim()) {
+      toast.error('Please enter a room code');
+      return;
+    }
+
+    setIsCheckingRejoin(true);
+    try {
+      const result = await canRejoinRoom(roomCode.toUpperCase());
+      setRejoinInfo(result);
+      if (result.canRejoin && result.playerName) {
+        setPlayerName(result.playerName);
+      }
+    } catch (error) {
+      toast.error('Failed to check rejoin status');
+      console.error(error);
+    } finally {
+      setIsCheckingRejoin(false);
+    }
+  };
 
   const handleJoinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +51,11 @@ const JoinRoom = () => {
     setIsLoading(true);
     try {
       await joinRoom(roomCode.toUpperCase(), playerName);
-      toast.success('Joined room successfully!');
+      if (rejoinInfo?.canRejoin) {
+        toast.success('Rejoined room successfully! Your progress has been restored.');
+      } else {
+        toast.success('Joined room successfully!');
+      }
       navigate(`/lobby`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to join room';
@@ -64,15 +93,55 @@ const JoinRoom = () => {
             <form onSubmit={handleJoinRoom} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="roomCode">Room Code</Label>
-                <Input
-                  id="roomCode"
-                  placeholder="ABC123"
-                  value={roomCode}
-                  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                  maxLength={6}
-                  className="text-center text-2xl tracking-widest font-mono"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="roomCode"
+                    placeholder="ABC123"
+                    value={roomCode}
+                    onChange={(e) => {
+                      setRoomCode(e.target.value.toUpperCase());
+                      setRejoinInfo(null); // Clear rejoin info when room code changes
+                    }}
+                    maxLength={6}
+                    className="text-center text-2xl tracking-widest font-mono flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCheckRejoin}
+                    disabled={isCheckingRejoin || !roomCode.trim()}
+                    className="px-4"
+                  >
+                    {isCheckingRejoin ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
+
+              {/* Rejoin Status */}
+              {rejoinInfo && (
+                <Alert className={rejoinInfo.canRejoin ? 'border-green-500 bg-green-50' : 'border-blue-500 bg-blue-50'}>
+                  <AlertDescription className="flex items-center gap-2">
+                    {rejoinInfo.canRejoin ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        <span className="text-green-800">
+                          Welcome back! You can rejoin as <strong>{rejoinInfo.playerName}</strong>. 
+                          Your progress will be restored.
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Users className="w-4 h-4 text-blue-600" />
+                        <span className="text-blue-800">{rejoinInfo.message}</span>
+                      </>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="playerName">Your Name</Label>
@@ -90,8 +159,12 @@ const JoinRoom = () => {
                 className="w-full"
                 size="lg"
                 disabled={isLoading}
+                variant={rejoinInfo?.canRejoin ? 'default' : 'default'}
               >
-                {isLoading ? 'Joining...' : 'Join Room'}
+                {isLoading 
+                  ? (rejoinInfo?.canRejoin ? 'Rejoining...' : 'Joining...') 
+                  : (rejoinInfo?.canRejoin ? 'Rejoin Room' : 'Join Room')
+                }
               </Button>
             </form>
           </CardContent>

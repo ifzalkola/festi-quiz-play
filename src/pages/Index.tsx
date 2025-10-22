@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuiz } from "@/contexts/QuizContext";
+import { useEffect } from "react";
 import { 
   Sparkles, 
   Users, 
@@ -19,6 +21,12 @@ import { toast } from "sonner";
 const Index = () => {
   const navigate = useNavigate();
   const { currentUser, isAdmin, signOut } = useAuth();
+  const { clearRoomState } = useQuiz();
+  
+  // Clear any existing room state when landing on the home page
+  useEffect(() => {
+    clearRoomState();
+  }, [clearRoomState]);
   
   const handleSignOut = async () => {
     try {
