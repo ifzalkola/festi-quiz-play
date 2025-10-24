@@ -17,6 +17,7 @@ import {
   LogOut
 } from "lucide-react";
 import { toast } from "sonner";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ const Index = () => {
   // Clear any existing room state when landing on the home page
   useEffect(() => {
     clearRoomState();
-  }, [clearRoomState]);
+  }, []);
   
   const handleSignOut = async () => {
     try {
@@ -50,6 +51,7 @@ const Index = () => {
             <div className="text-sm text-muted-foreground">
               Welcome, <span className="font-semibold text-foreground">{currentUser?.userId}</span>
             </div>
+            <ThemeToggle />
             {isAdmin() && (
               <Button variant="outline" size="sm" onClick={() => navigate('/admin')}>
                 <Shield className="h-4 w-4 mr-2" />
@@ -66,12 +68,18 @@ const Index = () => {
       
       {/* Hero Section */}
       <section className="relative overflow-hidden py-20 px-4 sm:px-6 lg:px-8">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background dark:from-primary/10 dark:via-background dark:to-background" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-secondary/10 via-transparent to-transparent dark:from-secondary/5" />
+        
+        {/* Floating Elements */}
+        <div className="absolute top-20 left-10 w-20 h-20 bg-primary/10 rounded-full blur-xl animate-pulse"></div>
+        <div className="absolute top-40 right-20 w-32 h-32 bg-secondary/10 rounded-full blur-2xl animate-pulse delay-1000"></div>
+        <div className="absolute bottom-20 left-1/4 w-16 h-16 bg-primary/5 rounded-full blur-lg animate-pulse delay-2000"></div>
         
         <div className="relative max-w-7xl mx-auto">
           <div className="text-center space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium">
-              <Sparkles className="w-4 h-4" />
+            <div className="inline-flex items-center gap-2 bg-primary/10 dark:bg-primary/20 text-primary px-6 py-3 rounded-full text-sm font-medium border border-primary/20 dark:border-primary/30 backdrop-blur-sm">
+              <Sparkles className="w-4 h-4 animate-spin" />
               Real-time Multiplayer Quiz Platform
             </div>
             
@@ -81,21 +89,21 @@ const Index = () => {
               </span>
             </h1>
             
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
               Create engaging quiz rooms, invite players, and compete in real-time. 
               Perfect for education, team building, or just having fun!
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
-              <Button size="lg" variant="hero" className="group" onClick={() => navigate('/create')}>
+              <Button size="lg" variant="hero" className="group shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all duration-300" onClick={() => navigate('/create')}>
                 <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
                 Create a Quiz Room
               </Button>
-              <Button size="lg" variant="outline" onClick={() => navigate('/join')}>
+              <Button size="lg" variant="outline" className="group hover:shadow-lg hover:shadow-primary/10 transition-all duration-300" onClick={() => navigate('/join')}>
                 Join with Code
               </Button>
-              <Button size="lg" variant="secondary" onClick={() => navigate('/how-to-play')}>
-                <Target className="w-5 h-5 mr-2" />
+              <Button size="lg" variant="secondary" className="group hover:shadow-lg hover:shadow-secondary/10 transition-all duration-300" onClick={() => navigate('/how-to-play')}>
+                <Target className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
                 How to Play
               </Button>
             </div>
@@ -104,9 +112,9 @@ const Index = () => {
       </section>
 
       {/* Features Grid */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-background to-muted/20 dark:from-background dark:to-muted/10">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16 space-y-4">
+          <div className="text-center mb-16 space-y-4 animate-in fade-in slide-in-from-top-4 duration-1000">
             <h2 className="text-3xl sm:text-4xl font-bold">
               Why Choose Our Platform?
             </h2>
@@ -115,7 +123,7 @@ const Index = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
             <FeatureCard
               icon={<Zap className="w-8 h-8" />}
               title="Real-time Gameplay"
@@ -151,9 +159,10 @@ const Index = () => {
       </section>
 
       {/* Roles Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16 space-y-4">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/50 dark:bg-muted/30 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent"></div>
+        <div className="relative max-w-7xl mx-auto">
+          <div className="text-center mb-16 space-y-4 animate-in fade-in slide-in-from-top-4 duration-1000 delay-500">
             <h2 className="text-3xl sm:text-4xl font-bold">
               Built for Everyone
             </h2>
@@ -162,7 +171,7 @@ const Index = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-700">
             <RoleCard
               title="Quiz Hosts"
               description="Create custom quiz rooms, upload questions via CSV, configure scoring rules, and control the entire game flow"
@@ -201,8 +210,9 @@ const Index = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center space-y-8">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-muted/20 to-background dark:from-muted/10 dark:to-background relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent"></div>
+        <div className="relative max-w-4xl mx-auto text-center space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-900">
           <div className="space-y-4">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold">
               Ready to Get Started?
@@ -213,11 +223,11 @@ const Index = () => {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button size="lg" variant="hero" onClick={() => navigate('/create')}>
-              <Sparkles className="w-5 h-5 mr-2" />
+            <Button size="lg" variant="hero" className="group shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all duration-300" onClick={() => navigate('/create')}>
+              <Sparkles className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
               Start Creating
             </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate('/join')}>
+            <Button size="lg" variant="outline" className="group hover:shadow-lg hover:shadow-primary/10 transition-all duration-300" onClick={() => navigate('/join')}>
               Join a Quiz
             </Button>
           </div>
@@ -239,13 +249,13 @@ const FeatureCard = ({ icon, title, description }: {
   title: string; 
   description: string;
 }) => (
-  <Card className="group hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 border-border/50 hover:border-primary/50">
+  <Card className="group hover:shadow-xl hover:shadow-primary/20 transition-all duration-500 border-border/50 hover:border-primary/50 hover:-translate-y-2 bg-card/50 backdrop-blur-sm">
     <CardContent className="pt-6 space-y-4">
-      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-primary-foreground group-hover:scale-110 transition-transform duration-300">
+      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-primary-foreground group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shadow-lg shadow-primary/25">
         {icon}
       </div>
-      <h3 className="text-xl font-semibold">{title}</h3>
-      <p className="text-muted-foreground">{description}</p>
+      <h3 className="text-xl font-semibold group-hover:text-primary transition-colors duration-300">{title}</h3>
+      <p className="text-muted-foreground leading-relaxed">{description}</p>
     </CardContent>
   </Card>
 );
@@ -261,18 +271,18 @@ const RoleCard = ({
   features: string[];
   gradient: string;
 }) => (
-  <Card className="group hover:shadow-xl hover:shadow-primary/20 transition-all duration-500 overflow-hidden border-border/50 hover:border-primary/50">
-    <div className={`h-2 bg-gradient-to-r ${gradient}`} />
+  <Card className="group hover:shadow-2xl hover:shadow-primary/30 transition-all duration-700 overflow-hidden border-border/50 hover:border-primary/50 hover:-translate-y-3 bg-card/50 backdrop-blur-sm">
+    <div className={`h-3 bg-gradient-to-r ${gradient} group-hover:h-4 transition-all duration-500`} />
     <CardContent className="pt-6 space-y-6">
       <div className="space-y-3">
-        <h3 className="text-2xl font-bold">{title}</h3>
-        <p className="text-muted-foreground">{description}</p>
+        <h3 className="text-2xl font-bold group-hover:text-primary transition-colors duration-300">{title}</h3>
+        <p className="text-muted-foreground leading-relaxed">{description}</p>
       </div>
-      <ul className="space-y-2">
+      <ul className="space-y-3">
         {features.map((feature, idx) => (
-          <li key={idx} className="flex items-center gap-2 text-sm">
-            <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-primary to-secondary" />
-            <span>{feature}</span>
+          <li key={idx} className="flex items-center gap-3 text-sm group-hover:translate-x-2 transition-transform duration-300" style={{transitionDelay: `${idx * 50}ms`}}>
+            <div className="w-2 h-2 rounded-full bg-gradient-to-r from-primary to-secondary group-hover:scale-125 transition-transform duration-300" />
+            <span className="group-hover:text-foreground transition-colors duration-300">{feature}</span>
           </li>
         ))}
       </ul>

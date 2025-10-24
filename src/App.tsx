@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { QuizProvider } from "@/contexts/QuizContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -24,9 +25,10 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <QuizProvider>
-        <TooltipProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <QuizProvider>
+          <TooltipProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter basename={import.meta.env.BASE_URL}>
@@ -87,9 +89,10 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
-        </TooltipProvider>
-      </QuizProvider>
-    </AuthProvider>
+          </TooltipProvider>
+        </QuizProvider>
+      </AuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

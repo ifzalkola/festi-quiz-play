@@ -5,14 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useQuiz } from '@/contexts/QuizContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Trophy, Medal, Award, Crown, Home, Share2, Copy, ArrowLeft, BarChart3 } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import RoundStatistics from '@/components/quiz/RoundStatistics';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const Leaderboard = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { currentRoom, players, roundStatistics, hideLeaderboard, loadRoom } = useQuiz();
+  const { currentRoom, players, roundStatistics, hideLeaderboard, loadRoom, updateRevealedRounds } = useQuiz();
   const { currentUser, hasPermission } = useAuth();
   const [hasAnimated, setHasAnimated] = useState(false);
 
@@ -24,7 +26,7 @@ const Leaderboard = () => {
   }, [roomId, loadRoom]);
 
   // Check if this is a mid-quiz leaderboard or final leaderboard
-  const isFinalLeaderboard = currentRoom?.isCompleted || false;
+  const isFinalLeaderboard = currentRoom?.isCompleted && currentRoom?.showFinalResults;
   const isMidQuiz = !isFinalLeaderboard && currentRoom?.isStarted;
 
   // Check if current user is the room owner or admin
@@ -64,6 +66,22 @@ const Leaderboard = () => {
     }
   }, [players, hasAnimated, isFinalLeaderboard]);
 
+  // Special animation when all rounds are revealed
+  useEffect(() => {
+    if (isFinalLeaderboard && currentRoom?.revealedRounds === currentRoom?.questions.length && !hasAnimated) {
+      // Trigger special confetti when all rounds are revealed
+      setTimeout(() => {
+        confetti({
+          particleCount: 200,
+          spread: 100,
+          origin: { y: 0.6 },
+          colors: ['#ffd700', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57']
+        });
+      }, 300);
+      setHasAnimated(true);
+    }
+  }, [isFinalLeaderboard, currentRoom?.revealedRounds, currentRoom?.questions.length, hasAnimated]);
+
   if (!currentRoom) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -79,21 +97,62 @@ const Leaderboard = () => {
     );
   }
 
+  // Calculate cumulative points based on revealed rounds
+  const calculateCumulativePoints = (player: any) => {
+    if (!isFinalLeaderboard || !currentRoom?.revealedRounds) {
+      return player.score; // Show total score for mid-quiz leaderboards
+    }
+    
+    const revealedRounds = currentRoom.revealedRounds;
+    let cumulativeScore = 0;
+    
+    // Sum points from revealed rounds only
+    for (let i = 0; i < revealedRounds && i < roundStatistics.length; i++) {
+      const roundStat = roundStatistics[i];
+      const playerAnswer = roundStat.answers.find((answer: any) => answer.playerId === player.id);
+      if (playerAnswer) {
+        cumulativeScore += playerAnswer.pointsEarned;
+      }
+    }
+    
+    return cumulativeScore;
+  };
+
   const sortedPlayers = [...(players || [])]
     .filter(p => p?.isOnline)
-    .sort((a, b) => (b?.score || 0) - (a?.score || 0));
+    .map(player => ({
+      ...player,
+      cumulativeScore: calculateCumulativePoints(player)
+    }))
+    .sort((a, b) => b.cumulativeScore - a.cumulativeScore);
 
   const winner = sortedPlayers?.[0];
   const topThree = sortedPlayers?.slice(0, 3) || [];
   const rest = sortedPlayers?.slice(3) || [];
 
+  // Filter round statistics based on revealed rounds
+  const visibleRoundStatistics = isFinalLeaderboard && currentRoom?.revealedRounds 
+    ? roundStatistics.slice(0, currentRoom.revealedRounds)
+    : roundStatistics;
+
+  // Handle slider change
+  const handleSliderChange = async (value: number[]) => {
+    if (!roomId) return;
+    const rounds = value[0];
+    try {
+      await updateRevealedRounds(roomId, rounds);
+    } catch (error) {
+      toast.error('Failed to update revealed rounds');
+    }
+  };
+
   const shareResults = () => {
     if (!currentRoom || !winner) return;
     
     const text = `🎉 Quiz Results for "${currentRoom.name}"\n\n` +
-      `🏆 Winner: ${winner?.name} (${winner?.score} points)\n\n` +
+      `🏆 Winner: ${winner?.name} (${winner?.cumulativeScore} points)\n\n` +
       `Top 3:\n` +
-      topThree.map((p, i) => `${i + 1}. ${p?.name} - ${p?.score} points`).join('\n');
+      topThree.map((p, i) => `${i + 1}. ${p?.name} - ${p?.cumulativeScore} points`).join('\n');
     
     if (navigator.share) {
       navigator.share({
@@ -130,14 +189,14 @@ const Leaderboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-muted/20 to-background p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-b from-background via-muted/20 to-background dark:via-primary/5 p-4 sm:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-4 animate-in fade-in slide-in-from-top duration-700">
-          <div className={`w-20 h-20 mx-auto rounded-full bg-gradient-to-br flex items-center justify-center ${
+          <div className={`w-20 h-20 mx-auto rounded-full bg-gradient-to-br flex items-center justify-center shadow-lg ${
             isFinalLeaderboard 
-              ? 'from-yellow-400 to-orange-500 animate-bounce' 
-              : 'from-blue-400 to-purple-500'
+              ? 'from-yellow-400 to-orange-500 dark:from-yellow-500 dark:to-orange-600 animate-bounce dark:shadow-yellow-500/30' 
+              : 'from-blue-400 to-purple-500 dark:from-blue-500 dark:to-purple-600 dark:shadow-blue-500/30'
           }`}>
             <Trophy className="w-10 h-10 text-white" />
           </div>
@@ -147,13 +206,23 @@ const Leaderboard = () => {
           <p className="text-xl text-muted-foreground">
             {currentRoom.name}
           </p>
+          {/* Show cumulative round information */}
+          <p className="text-lg font-semibold text-primary">
+            {isFinalLeaderboard 
+              ? currentRoom?.revealedRounds === currentRoom?.questions.length
+                ? 'Final Leaderboard'
+                : `Leaderboard After Round ${currentRoom?.revealedRounds || 1}`
+              : `Leaderboard After Round ${currentRoom?.currentQuestionIndex || 0}`
+            }
+          </p>
           {/* Show message for players during mid-quiz */}
           {!isFinalLeaderboard && !canControlQuiz && (
-            <p className="text-sm text-muted-foreground bg-muted/50 px-4 py-2 rounded-lg">
+            <p className="text-sm text-muted-foreground bg-muted/50 dark:bg-muted/80 dark:border dark:border-border/50 px-4 py-2 rounded-lg">
               Waiting for host to continue the quiz...
             </p>
           )}
           <div className="flex items-center justify-center gap-4">
+            <ThemeToggle />
             {isFinalLeaderboard ? (
               <>
                 <Button onClick={shareResults} variant="outline">
@@ -179,9 +248,47 @@ const Leaderboard = () => {
           </div>
         </div>
 
-        {/* Winner Spotlight - Only for final leaderboard */}
-        {winner && isFinalLeaderboard && (
-          <Card className="border-2 border-yellow-500 bg-gradient-to-br from-yellow-500/10 via-background to-orange-500/10 animate-in zoom-in duration-700 delay-300">
+        {/* Reveal Control Slider - Only for final leaderboard and hosts */}
+        {isFinalLeaderboard && canControlQuiz && (
+          <Card className="animate-in fade-in duration-700 delay-200">
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold mb-2">🎭 Reveal Control</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Control how many rounds players can see
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Round 1</span>
+                    <span className="font-medium">
+                      Round {currentRoom?.revealedRounds || 1} of {currentRoom?.questions.length || 0}
+                    </span>
+                    <span>Final Results</span>
+                  </div>
+                  <Slider
+                    value={[currentRoom?.revealedRounds || 1]}
+                    onValueChange={handleSliderChange}
+                    max={currentRoom?.questions.length || 1}
+                    min={1}
+                    step={1}
+                    className="w-full"
+                  />
+                  <div className="text-center text-xs text-muted-foreground">
+                    {currentRoom?.revealedRounds === currentRoom?.questions.length 
+                      ? "🎉 All rounds revealed!" 
+                      : `Showing ${currentRoom?.revealedRounds || 1} round${(currentRoom?.revealedRounds || 1) > 1 ? 's' : ''}`}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Winner Spotlight - Only show when all rounds are revealed */}
+        {winner && isFinalLeaderboard && currentRoom?.revealedRounds === currentRoom?.questions.length && (
+          <Card className="border-2 border-yellow-500 bg-gradient-to-br from-yellow-500/20 via-background to-orange-500/20 dark:from-yellow-500/30 dark:via-background dark:to-orange-500/30 animate-in zoom-in duration-700 delay-300">
             <CardContent className="pt-8 pb-8 text-center space-y-4">
               <Crown className="w-16 h-16 text-yellow-500 mx-auto animate-pulse" />
               <div className="space-y-2">
@@ -190,19 +297,19 @@ const Leaderboard = () => {
                   {winner.name}
                 </p>
                 <p className="text-5xl font-black text-yellow-500">
-                  {winner.score} <span className="text-2xl">points</span>
+                  {winner.cumulativeScore} <span className="text-2xl">points</span>
                 </p>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Top 3 Podium */}
-        {topThree.length >= 2 && (
+        {/* Top 3 Podium - Only show when all rounds are revealed */}
+        {topThree.length >= 2 && isFinalLeaderboard && currentRoom?.revealedRounds === currentRoom?.questions.length && (
           <div className="grid grid-cols-3 gap-4 items-end animate-in fade-in slide-in-from-bottom duration-700 delay-500">
             {/* 2nd Place */}
             {topThree[1] && (
-              <Card className="border-gray-300 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900">
+              <Card className="border-gray-300 bg-gradient-to-br from-gray-100 to-gray-200 dark:border-gray-600 dark:from-gray-800 dark:to-gray-900 dark:shadow-lg dark:shadow-gray-800/20">
                 <CardContent className="pt-6 pb-6 text-center space-y-3">
                   <div className="w-16 h-16 mx-auto rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center">
                     <Medal className="w-8 h-8 text-gray-600 dark:text-gray-300" />
@@ -210,14 +317,14 @@ const Leaderboard = () => {
                   <div className="text-4xl font-bold">2nd</div>
                   <p className="font-semibold truncate">{topThree[1].name}</p>
                   <p className="text-2xl font-bold text-gray-600 dark:text-gray-300">
-                    {topThree[1].score}
+                    {topThree[1].cumulativeScore}
                   </p>
                 </CardContent>
               </Card>
             )}
 
             {/* 1st Place */}
-            <Card className="border-2 border-yellow-400 bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900 dark:to-orange-900 transform scale-110">
+            <Card className="border-2 border-yellow-400 bg-gradient-to-br from-yellow-100 to-yellow-200 dark:border-yellow-500 dark:from-yellow-900/80 dark:to-orange-900/80 dark:shadow-lg dark:shadow-yellow-500/20 transform scale-110">
               <CardContent className="pt-8 pb-8 text-center space-y-3">
                 <div className="w-20 h-20 mx-auto rounded-full bg-yellow-400 flex items-center justify-center">
                   <Crown className="w-10 h-10 text-yellow-900" />
@@ -225,14 +332,14 @@ const Leaderboard = () => {
                 <div className="text-5xl font-bold">1st</div>
                 <p className="font-bold truncate text-lg">{topThree[0].name}</p>
                 <p className="text-3xl font-black text-yellow-600 dark:text-yellow-400">
-                  {topThree[0].score}
+                  {topThree[0].cumulativeScore}
                 </p>
               </CardContent>
             </Card>
 
             {/* 3rd Place */}
             {topThree[2] && (
-              <Card className="border-orange-300 bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900 dark:to-orange-950">
+              <Card className="border-orange-300 bg-gradient-to-br from-orange-100 to-orange-200 dark:border-orange-600 dark:from-orange-900/80 dark:to-orange-950/80 dark:shadow-lg dark:shadow-orange-500/20">
                 <CardContent className="pt-6 pb-6 text-center space-y-3">
                   <div className="w-16 h-16 mx-auto rounded-full bg-orange-300 dark:bg-orange-700 flex items-center justify-center">
                     <Award className="w-8 h-8 text-orange-600 dark:text-orange-300" />
@@ -240,7 +347,7 @@ const Leaderboard = () => {
                   <div className="text-4xl font-bold">3rd</div>
                   <p className="font-semibold truncate">{topThree[2].name}</p>
                   <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                    {topThree[2].score}
+                    {topThree[2].cumulativeScore}
                   </p>
                 </CardContent>
               </Card>
@@ -249,11 +356,16 @@ const Leaderboard = () => {
         )}
 
         {/* Full Leaderboard */}
-        <Card className="animate-in fade-in slide-in-from-bottom duration-700 delay-700">
+        <Card className="animate-in fade-in slide-in-from-bottom duration-700 delay-700 dark:border-border/50 dark:shadow-lg dark:shadow-background/10">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Trophy className="w-5 h-5" />
-              {isFinalLeaderboard ? 'Final Rankings' : 'Current Rankings'}
+              {isFinalLeaderboard && currentRoom?.revealedRounds === currentRoom?.questions.length 
+                ? 'Final Rankings' 
+                : isFinalLeaderboard 
+                  ? `Rankings After Round ${currentRoom?.revealedRounds || 1}`
+                  : 'Current Rankings'
+              }
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -296,7 +408,7 @@ const Leaderboard = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-primary">{player.score}</p>
+                    <p className="text-2xl font-bold text-primary">{player.cumulativeScore}</p>
                     <p className="text-xs text-muted-foreground">points</p>
                   </div>
                 </div>
@@ -312,27 +424,27 @@ const Leaderboard = () => {
         </Card>
 
         {/* Stats Card */}
-        <Card className="animate-in fade-in duration-700 delay-1000">
+        <Card className="animate-in fade-in duration-700 delay-1000 dark:border-border/50 dark:shadow-lg dark:shadow-background/10">
           <CardHeader>
             <CardTitle>Quiz Statistics</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-muted rounded-lg">
+              <div className="text-center p-4 bg-muted rounded-lg dark:bg-muted/80 dark:border dark:border-border/50">
                 <p className="text-3xl font-bold text-primary">{sortedPlayers.length}</p>
                 <p className="text-sm text-muted-foreground">Total Players</p>
               </div>
-              <div className="text-center p-4 bg-muted rounded-lg">
+              <div className="text-center p-4 bg-muted rounded-lg dark:bg-muted/80 dark:border dark:border-border/50">
                 <p className="text-3xl font-bold text-primary">{currentRoom.questions?.length || 0}</p>
                 <p className="text-sm text-muted-foreground">Questions</p>
               </div>
-              <div className="text-center p-4 bg-muted rounded-lg">
+              <div className="text-center p-4 bg-muted rounded-lg dark:bg-muted/80 dark:border dark:border-border/50">
                 <p className="text-3xl font-bold text-primary">
-                  {winner ? winner.score : 0}
+                  {winner ? winner.cumulativeScore : 0}
                 </p>
                 <p className="text-sm text-muted-foreground">Highest Score</p>
               </div>
-              <div className="text-center p-4 bg-muted rounded-lg">
+              <div className="text-center p-4 bg-muted rounded-lg dark:bg-muted/80 dark:border dark:border-border/50">
                 <p className="text-3xl font-bold text-primary">
                   {sortedPlayers && sortedPlayers.length > 0 
                     ? Math.round(sortedPlayers.reduce((acc, p) => acc + (p?.score || 0), 0) / sortedPlayers.length)
@@ -346,13 +458,13 @@ const Leaderboard = () => {
 
         {/* Round Statistics */}
         <RoundStatistics 
-          roundStats={roundStatistics} 
+          roundStats={visibleRoundStatistics} 
           isFinalLeaderboard={isFinalLeaderboard}
         />
 
         {/* Play Again Section - Only for final leaderboard */}
         {isFinalLeaderboard && (
-          <Card className="border-primary/50 bg-primary/5 animate-in fade-in duration-700 delay-1200">
+          <Card className="border-primary/50 bg-primary/5 dark:border-primary/30 dark:bg-primary/10 animate-in fade-in duration-700 delay-1200">
             <CardContent className="pt-6 pb-6 text-center space-y-4">
               <h3 className="text-xl font-bold">Want to Play Again?</h3>
               <p className="text-muted-foreground">
