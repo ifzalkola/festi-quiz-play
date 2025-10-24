@@ -15,7 +15,7 @@ import { Progress } from '@/components/ui/progress';
 const QuizControl = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { currentRoom, players, currentQuestion, answers, publishQuestion, nextQuestion, endQuiz, showLeaderboard, loadRoom } = useQuiz();
+  const { currentRoom, players, currentQuestion, answers, publishQuestion, nextQuestion, endQuiz, showLeaderboard, showFinalResults, loadRoom } = useQuiz();
   const { currentUser, hasPermission } = useAuth();
   
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -79,8 +79,8 @@ const QuizControl = () => {
   useEffect(() => {
     if (!currentRoom) return;
     
-    // Check if we're at the end
-    if (currentRoom.isCompleted) {
+    // Only redirect to leaderboard if quiz is completed AND results are revealed
+    if (currentRoom.isCompleted && currentRoom.showFinalResults) {
       navigate(`/leaderboard/${roomId}`);
     }
   }, [currentRoom, roomId, navigate]);
@@ -166,10 +166,21 @@ const QuizControl = () => {
     
     try {
       await endQuiz(roomId);
-      toast.success('Quiz completed!');
-      navigate(`/leaderboard/${roomId}`);
+      toast.success('Quiz completed! Click "Reveal Results" to show final leaderboard to players.');
     } catch (error) {
       toast.error('Failed to end quiz');
+    }
+  };
+
+  const handleRevealResults = async () => {
+    if (!roomId) return;
+    
+    try {
+      await showFinalResults(roomId);
+      toast.success('Final results revealed to players!');
+      navigate(`/leaderboard/${roomId}`);
+    } catch (error) {
+      toast.error('Failed to reveal results');
     }
   };
 
@@ -197,10 +208,17 @@ const QuizControl = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
           </Button>
-          <Button variant="destructive" onClick={handleEndQuiz}>
-            <Trophy className="w-4 h-4 mr-2" />
-            End Quiz
-          </Button>
+          {currentRoom?.isCompleted ? (
+            <Button onClick={handleRevealResults} className="bg-green-600 hover:bg-green-700">
+              <Trophy className="w-4 h-4 mr-2" />
+              Reveal Results
+            </Button>
+          ) : (
+            <Button variant="destructive" onClick={handleEndQuiz}>
+              <Trophy className="w-4 h-4 mr-2" />
+              End Quiz
+            </Button>
+          )}
         </div>
 
         {/* Progress */}

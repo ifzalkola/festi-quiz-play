@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useQuiz } from '@/contexts/QuizContext';
-import { Users, Loader2, CheckCircle2, Circle } from 'lucide-react';
+import { Users, Loader2, CheckCircle2, Circle, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 import PlayerList from '@/components/quiz/PlayerList';
 
@@ -31,7 +31,11 @@ const PlayerLobby = () => {
     if (currentRoom?.isCompleted) {
       const roomId = localStorage.getItem('current_room_id');
       if (roomId) {
-        navigate(`/leaderboard/${roomId}`);
+        // Only redirect to leaderboard if results are revealed
+        if (currentRoom.showFinalResults) {
+          navigate(`/leaderboard/${roomId}`);
+        }
+        // Otherwise, stay on this page to show waiting screen
       } else {
         navigate('/');
       }
@@ -81,6 +85,42 @@ const PlayerLobby = () => {
             <Button onClick={() => navigate('/')} className="mt-4">
               Go Home
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show curiosity waiting screen when quiz is completed but results aren't revealed yet
+  if (currentRoom.isCompleted && !currentRoom.showFinalResults) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6 text-center space-y-6">
+            <div className="space-y-4">
+              <div className="w-16 h-16 mx-auto bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                <Trophy className="w-8 h-8 text-white animate-pulse" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  Quiz Complete! 🎉
+                </h2>
+                <p className="text-muted-foreground">
+                  Great job! The host is preparing the final results...
+                </p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Results will be revealed soon!
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

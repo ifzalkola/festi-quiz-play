@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, UserPlus, Shield, Trash2, Edit, Users, Home, Eye, Play } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const AdminDashboard = () => {
   const { currentUser, isAdmin, getAllUsers, createUser, updateUserPermissions, deleteUser, signOut } = useAuth();
@@ -173,7 +174,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 p-4">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <Card>
@@ -192,6 +193,7 @@ const AdminDashboard = () => {
                 </div>
               </div>
               <div className="flex gap-2">
+                <ThemeToggle />
                 <Button variant="outline" onClick={() => navigate('/')}>
                   Back to Home
                 </Button>

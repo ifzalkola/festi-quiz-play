@@ -62,9 +62,9 @@ const PlayQuiz = () => {
     }
   }, [currentQuestion?.question.id]);
 
-  // Redirect to leaderboard when quiz ends
+  // Redirect to leaderboard when quiz ends AND results are revealed
   useEffect(() => {
-    if (currentRoom?.isCompleted) {
+    if (currentRoom?.isCompleted && currentRoom?.showFinalResults) {
       const roomId = localStorage.getItem('current_room_id');
       navigate(`/leaderboard/${roomId}`);
     }
@@ -97,6 +97,42 @@ const PlayQuiz = () => {
             <Button onClick={() => navigate('/')}>
               Go Home
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show curiosity waiting screen when quiz is completed but results aren't revealed yet
+  if (currentRoom.isCompleted && !currentRoom.showFinalResults) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6 text-center space-y-6">
+            <div className="space-y-4">
+              <div className="w-16 h-16 mx-auto bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                <Trophy className="w-8 h-8 text-white animate-pulse" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  Quiz Complete! 🎉
+                </h2>
+                <p className="text-muted-foreground">
+                  Great job! The host is preparing the final results...
+                </p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Results will be revealed soon!
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -25,6 +25,8 @@ interface FirebaseRoom {
   isCompleted: boolean;
   currentQuestionIndex: number;
   showLeaderboard: boolean;
+  showFinalResults: boolean;
+  revealedRounds: number;
   createdAt: string;
 }
 
@@ -66,6 +68,8 @@ export interface QuizRoom {
   isCompleted: boolean;
   currentQuestionIndex: number;
   showLeaderboard: boolean;
+  showFinalResults: boolean;
+  revealedRounds: number;
   createdAt: Date;
 }
 
@@ -134,6 +138,8 @@ interface QuizContextType {
   endQuiz: (roomId: string) => Promise<void>;
   showLeaderboard: (roomId: string) => Promise<void>;
   hideLeaderboard: (roomId: string) => Promise<void>;
+  showFinalResults: (roomId: string) => Promise<void>;
+  updateRevealedRounds: (roomId: string, rounds: number) => Promise<void>;
   leaveRoom: (playerId: string) => Promise<void>;
   
   // Admin room management
@@ -224,6 +230,8 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       isCompleted: false,
       currentQuestionIndex: -1,
       showLeaderboard: false,
+      showFinalResults: false,
+      revealedRounds: 1,
       createdAt: new Date().toISOString()
     };
     
@@ -525,41 +533,26 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       ? currentQuestion.question.correctAnswer.some(ca => ca.toLowerCase().trim() === answer.toLowerCase().trim())
       : currentQuestion.question.correctAnswer.toLowerCase().trim() === answer.toLowerCase().trim();
     
-    // Get correct answers count for scoring calculations
-    const correctAnswersCount = currentAnswers.filter((a) => a.isCorrect).length;
-    
+    // For time-based scoring, calculate points immediately
     let pointsEarned = 0;
-    if (isCorrect) {
-      switch (currentQuestion.scoringMode) {
-        case 'time-based':
-          // Eg: 30 points, answer in 0-3 secs = 30 points, answer in 4-6 secs = 27 points, answer in 7-9 secs = 24 points, etc.
-
-          const range = currentQuestion.timeLimit / 10;
-          const mod = Math.ceil((currentQuestion.timeLimit - timeTaken) / range);
-          pointsEarned = currentQuestion.basePoints * (mod / 10);
-          if (pointsEarned < 0) pointsEarned = 0;
+    if (isCorrect && currentQuestion.scoringMode === 'time-based') {
+      // Eg: 30 points, answer in 0-3 secs = 30 points, answer in 4-6 secs = 27 points, answer in 7-9 secs = 24 points, etc.
+      const range = currentQuestion.timeLimit / 10;
+      const mod = Math.ceil((currentQuestion.timeLimit - timeTaken) / range);
+      pointsEarned = currentQuestion.basePoints * (mod / 10);
+      if (pointsEarned < 0) pointsEarned = 0;
+      
+      // Update player score immediately for time-based scoring
+      for (const [pid, p] of Object.entries(allPlayers)) {
+        if (p.id === playerId) {
+          const playerRef = ref(database, `players/${pid}`);
+          await update(playerRef, { score: player.score + pointsEarned });
           break;
-        case 'order-based':
-          if (correctAnswersCount === 0) pointsEarned = currentQuestion.basePoints;
-          else if (correctAnswersCount === 1) pointsEarned = Math.floor(currentQuestion.basePoints * 0.7);
-          else if (correctAnswersCount === 2) pointsEarned = Math.floor(currentQuestion.basePoints * 0.4);
-          break;
-        case 'first-only':
-          if (correctAnswersCount === 0) pointsEarned = currentQuestion.basePoints;
-          break;
+        }
       }
     }
     
-    // Update player score
-    for (const [pid, p] of Object.entries(allPlayers)) {
-      if (p.id === playerId) {
-        const playerRef = ref(database, `players/${pid}`);
-        await update(playerRef, { score: player.score + pointsEarned });
-        break;
-      }
-    }
-    
-    // Store answer
+    // Store answer (points will be calculated later for order-based and first-only)
     const answerRef = push(ref(database, `answers/${currentRoom.id}`));
     await set(answerRef, {
       playerId,
@@ -582,6 +575,71 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       if (p.id === playerId) {
         await update(ref(database, `players/${pid}`), { isReady });
         break;
+      }
+    }
+  };
+
+  // Helper function to calculate and award points for order-based and first-only scoring
+  const calculateAndAwardPoints = async (
+    roomId: string,
+    answers: Answer[],
+    scoringMode: ScoringMode,
+    basePoints: number
+  ): Promise<void> => {
+    if (scoringMode === 'time-based') {
+      // Points already awarded during submission
+      return;
+    }
+
+    // Get all players to update their scores
+    const playersRef = ref(database, 'players');
+    const playersSnapshot = await get(playersRef);
+    
+    if (!playersSnapshot.exists()) return;
+    
+    const allPlayers = playersSnapshot.val() as Record<string, FirebasePlayer>;
+    
+    // Filter correct answers and sort by time taken (lower timeTaken = submitted earlier)
+    const correctAnswers = answers
+      .filter(answer => answer.isCorrect)
+      .sort((a, b) => a.timeTaken - b.timeTaken);
+
+    // Calculate points based on scoring mode
+    for (let i = 0; i < correctAnswers.length; i++) {
+      const answer = correctAnswers[i];
+      let pointsEarned = 0;
+
+      if (scoringMode === 'order-based') {
+        if (i === 0) pointsEarned = basePoints;
+        else if (i === 1) pointsEarned = Math.floor(basePoints * 0.7);
+        else if (i === 2) pointsEarned = Math.floor(basePoints * 0.4);
+        // No points for 4th+ correct answers
+      } else if (scoringMode === 'first-only') {
+        if (i === 0) pointsEarned = basePoints;
+        // No points for 2nd+ correct answers
+      }
+
+      // Update the answer with calculated points
+      const answersRef = ref(database, `answers/${roomId}`);
+      const answersSnapshot = await get(answersRef);
+      
+      if (answersSnapshot.exists()) {
+        const answersData = answersSnapshot.val() as Record<string, Answer>;
+        for (const [answerId, answerData] of Object.entries(answersData)) {
+          if (answerData.playerId === answer.playerId && answerData.timeTaken === answer.timeTaken) {
+            await update(ref(database, `answers/${roomId}/${answerId}`), { pointsEarned });
+            break;
+          }
+        }
+      }
+
+      // Update player score
+      for (const [pid, player] of Object.entries(allPlayers)) {
+        if (player.id === answer.playerId) {
+          const playerRef = ref(database, `players/${pid}`);
+          await update(playerRef, { score: player.score + pointsEarned });
+          break;
+        }
       }
     }
   };
@@ -682,6 +740,20 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       if (questionInfo) {
         const { questionData, questionSettings } = questionInfo;
         
+        // Calculate and award points for order-based and first-only scoring BEFORE creating statistics
+        await calculateAndAwardPoints(
+          roomId,
+          currentAnswers,
+          questionSettings.scoringMode,
+          questionSettings.basePoints
+        );
+        
+        // Get updated answers with correct points
+        const updatedAnswersSnapshot = await get(answersRef);
+        const updatedAnswers = updatedAnswersSnapshot.exists() 
+          ? Object.values(updatedAnswersSnapshot.val() as Record<string, Answer>) 
+          : currentAnswers;
+        
         const roundStats: RoundStatistics = {
           questionIndex: room.currentQuestionIndex,
           questionText: questionData.text,
@@ -689,7 +761,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
           scoringMode: questionSettings.scoringMode,
           basePoints: questionSettings.basePoints,
           timeLimit: questionSettings.timeLimit,
-          answers: [...currentAnswers],
+          answers: [...updatedAnswers],
           imageUrl: questionData.imageUrl
         };
         
@@ -758,6 +830,20 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       if (questionInfo) {
         const { questionData, questionSettings } = questionInfo;
         
+        // Calculate and award points for order-based and first-only scoring BEFORE creating statistics
+        await calculateAndAwardPoints(
+          roomId,
+          currentAnswers,
+          questionSettings.scoringMode,
+          questionSettings.basePoints
+        );
+        
+        // Get updated answers with correct points
+        const updatedAnswersSnapshot = await get(answersRef);
+        const updatedAnswers = updatedAnswersSnapshot.exists() 
+          ? Object.values(updatedAnswersSnapshot.val() as Record<string, Answer>) 
+          : currentAnswers;
+        
         const roundStats: RoundStatistics = {
           questionIndex: room.currentQuestionIndex,
           questionText: questionData.text,
@@ -765,7 +851,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
           scoringMode: questionSettings.scoringMode,
           basePoints: questionSettings.basePoints,
           timeLimit: questionSettings.timeLimit,
-          answers: [...currentAnswers],
+          answers: [...updatedAnswers],
           imageUrl: questionData.imageUrl
         };
         
@@ -787,7 +873,10 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     
-    await update(ref(database, `rooms/${roomId}`), { isCompleted: true });
+    await update(ref(database, `rooms/${roomId}`), { 
+      isCompleted: true,
+      showFinalResults: false // Don't show final results immediately
+    });
     
     // Clear current question
     await remove(currentQuestionRef);
@@ -801,17 +890,6 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       throw new Error('You do not have permission to show leaderboard for this room');
     }
     
-    await update(ref(database, `rooms/${roomId}`), { showLeaderboard: true });
-  };
-
-  const hideLeaderboard = async (roomId: string): Promise<void> => {
-    if (!currentUserId) throw new Error('User not authenticated');
-    
-    // Check if user can manage this room
-    if (!(await canManageRoom(roomId))) {
-      throw new Error('You do not have permission to hide leaderboard for this room');
-    }
-    
     // Get fresh data from Firebase to ensure we have the latest state
     const roomRef = ref(database, `rooms/${roomId}`);
     const roomSnapshot = await get(roomRef);
@@ -822,7 +900,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     
     const room = roomSnapshot.val();
     
-    // IMPORTANT: Save round statistics BEFORE clearing current question
+    // IMPORTANT: Save round statistics BEFORE showing leaderboard
     // Get current question data (should still exist at this point)
     const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
     const currentQuestionSnapshot = await get(currentQuestionRef);
@@ -848,6 +926,20 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       if (questionInfo) {
         const { questionData, questionSettings } = questionInfo;
         
+        // Calculate and award points for order-based and first-only scoring BEFORE creating statistics
+        await calculateAndAwardPoints(
+          roomId,
+          currentAnswers,
+          questionSettings.scoringMode,
+          questionSettings.basePoints
+        );
+        
+        // Get updated answers with correct points
+        const updatedAnswersSnapshot = await get(answersRef);
+        const updatedAnswers = updatedAnswersSnapshot.exists() 
+          ? Object.values(updatedAnswersSnapshot.val() as Record<string, Answer>) 
+          : currentAnswers;
+        
         const roundStats: RoundStatistics = {
           questionIndex: room.currentQuestionIndex,
           questionText: questionData.text,
@@ -855,7 +947,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
           scoringMode: questionSettings.scoringMode,
           basePoints: questionSettings.basePoints,
           timeLimit: questionSettings.timeLimit,
-          answers: [...currentAnswers],
+          answers: [...updatedAnswers],
           imageUrl: questionData.imageUrl
         };
         
@@ -877,19 +969,74 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     
-    // Hide leaderboard and clear current question to return players to waiting state
-    await update(roomRef, { showLeaderboard: false });
-    
-    // Clear current question so players see waiting state instead of last question
-    await remove(currentQuestionRef);
-    
     // Advance to next question so host sees the correct question when returning to control
     const nextQuestionIndex = room.currentQuestionIndex + 1;
     
     // Only advance if there are more questions
     if (nextQuestionIndex < room.questions.length) {
-      await update(roomRef, { currentQuestionIndex: nextQuestionIndex });
+      await update(roomRef, { 
+        currentQuestionIndex: nextQuestionIndex,
+        showLeaderboard: true 
+      });
+    } else {
+      // If no more questions, just show leaderboard
+      await update(roomRef, { showLeaderboard: true });
     }
+    
+    // Clear current question so players see waiting state instead of last question
+    await remove(currentQuestionRef);
+  };
+
+  const hideLeaderboard = async (roomId: string): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to hide leaderboard for this room');
+    }
+    
+    // Simply hide leaderboard and clear current question
+    await update(ref(database, `rooms/${roomId}`), { showLeaderboard: false });
+    
+    // Clear current question so players see waiting state instead of last question
+    const currentQuestionRef = ref(database, `currentQuestions/${roomId}`);
+    await remove(currentQuestionRef);
+  };
+
+  const showFinalResults = async (roomId: string): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to show final results for this room');
+    }
+    
+    // Get room data to set revealedRounds to total questions
+    const roomRef = ref(database, `rooms/${roomId}`);
+    const roomSnapshot = await get(roomRef);
+    
+    if (!roomSnapshot.exists()) {
+      throw new Error('Room not found');
+    }
+    
+    const room = roomSnapshot.val();
+    const totalQuestions = room.questions.length;
+    
+    await update(ref(database, `rooms/${roomId}`), { 
+      showFinalResults: true,
+      revealedRounds: 1 
+    });
+  };
+
+  const updateRevealedRounds = async (roomId: string, rounds: number): Promise<void> => {
+    if (!currentUserId) throw new Error('User not authenticated');
+    
+    // Check if user can manage this room
+    if (!(await canManageRoom(roomId))) {
+      throw new Error('You do not have permission to update revealed rounds for this room');
+    }
+    
+    await update(ref(database, `rooms/${roomId}`), { revealedRounds: rounds });
   };
 
   const leaveRoom = async (playerId: string): Promise<void> => {
@@ -1181,6 +1328,8 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         endQuiz,
         showLeaderboard,
         hideLeaderboard,
+        showFinalResults,
+        updateRevealedRounds,
         leaveRoom,
         getAllRooms,
         deleteRoom,
