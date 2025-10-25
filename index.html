@@ -2,19 +2,58 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fun Quiz - Real-time Multiplayer Quiz Platform</title>
-    <meta name="description" content="Create engaging quiz battles, invite players, and compete in real-time. Perfect for education, team building, or just having fun!" />
-    <meta name="author" content="Fun Quiz Platform" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Festi Quiz Play - Interactive Quiz Battles</title>
+    <meta name="description" content="Create engaging quiz battles, invite players, and compete in real-time. Perfect for festivals, education, team building, or just having fun!" />
+    <meta name="author" content="Festi Quiz Platform" />
+    
+    <!-- PWA Meta Tags -->
+    <meta name="application-name" content="Festi Quiz Play" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Festi Quiz" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+    <meta name="msapplication-TileColor" content="#3b82f6" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    <meta name="theme-color" content="#3b82f6" />
 
-    <meta property="og:title" content="Fun Quiz - Real-time Multiplayer Quiz Platform" />
-    <meta property="og:description" content="Create engaging quiz battles, invite players, and compete in real-time. Perfect for education, team building, or just having fun!" />
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:url" content="https://your-domain.com/" />
+    <meta property="og:title" content="Festi Quiz Play - Interactive Quiz Battles" />
+    <meta property="og:description" content="Create engaging quiz battles, invite players, and compete in real-time. Perfect for festivals, education, team building, or just having fun!" />
+    <meta property="og:image" content="/placeholder.svg" />
 
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://your-domain.com/" />
+    <meta property="twitter:title" content="Festi Quiz Play - Interactive Quiz Battles" />
+    <meta property="twitter:description" content="Create engaging quiz battles, invite players, and compete in real-time. Perfect for festivals, education, team building, or just having fun!" />
+    <meta property="twitter:image" content="/placeholder.svg" />
+
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/placeholder.svg" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/placeholder.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/placeholder.svg" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/placeholder.svg" />
+
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico" />
+
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/src/main.tsx" as="script" />
+    <link rel="preload" href="/src/index.css" as="style" />
+
+    <!-- DNS Prefetch for external resources -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="//firebase.googleapis.com" />
 
     <!-- Start Single Page Apps for GitHub Pages -->
     <script type="text/javascript">
@@ -40,6 +79,21 @@
       }(window.location))
     </script>
     <!-- End Single Page Apps for GitHub Pages -->
+
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SW registered: ', registration);
+            })
+            .catch((registrationError) => {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+    </script>
   </head>
 
   <body>
