@@ -133,7 +133,7 @@ const QuestionManager = ({ battleId, questions, canEdit }: QuestionManagerProps)
               Add Question
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Question</DialogTitle>
             </DialogHeader>
@@ -271,7 +271,7 @@ const QuestionManager = ({ battleId, questions, canEdit }: QuestionManagerProps)
       {/* Edit Question Dialog */}
       {canEdit && (
         <Dialog open={editingId !== null} onOpenChange={() => setEditingId(null)}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Question</DialogTitle>
             </DialogHeader>
