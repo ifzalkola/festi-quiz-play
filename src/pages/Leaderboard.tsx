@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +17,9 @@ const Leaderboard = () => {
   const { currentRoom, players, roundStatistics, hideLeaderboard, loadRoom, updateRevealedRounds } = useQuiz();
   const { currentUser, hasPermission } = useAuth();
   const [hasAnimated, setHasAnimated] = useState(false);
+  const [playerPositions, setPlayerPositions] = useState<Map<string, number>>(new Map());
+  const [previousPositions, setPreviousPositions] = useState<Map<string, number>>(new Map());
+  const playerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Load the room when component mounts
   useEffect(() => {
@@ -24,6 +27,43 @@ const Leaderboard = () => {
       loadRoom(roomId);
     }
   }, [roomId, loadRoom]);
+
+  // Handle smooth position animations
+  useEffect(() => {
+    if (previousPositions.size === 0) {
+      // First render - just set previous positions
+      setPreviousPositions(new Map(playerPositions));
+      return;
+    }
+
+    // Animate players that have moved positions
+    playerPositions.forEach((newPosition, playerId) => {
+      const oldPosition = previousPositions.get(playerId);
+      const playerElement = playerRefs.current.get(playerId);
+      
+      if (oldPosition !== undefined && oldPosition !== newPosition && playerElement) {
+        // Calculate the distance to move
+        const itemHeight = 88; // Height of each player item
+        const moveDistance = (oldPosition - newPosition) * itemHeight;
+        
+        // Apply the movement using transform
+        playerElement.style.transform = `translateY(${moveDistance}px)`;
+        playerElement.style.transition = 'none';
+        
+        // Force reflow
+        playerElement.offsetHeight;
+        
+        // Animate to final position
+        requestAnimationFrame(() => {
+          playerElement.style.transition = 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+          playerElement.style.transform = 'translateY(0)';
+        });
+      }
+    });
+
+    // Update previous positions for next comparison
+    setPreviousPositions(new Map(playerPositions));
+  }, [playerPositions]);
 
   // Check if this is a mid-quiz leaderboard or final leaderboard
   const isFinalLeaderboard = currentRoom?.isCompleted && currentRoom?.showFinalResults;
@@ -118,13 +158,24 @@ const Leaderboard = () => {
     return cumulativeScore;
   };
 
-  const sortedPlayers = [...(players || [])]
-    .filter(p => p?.isOnline)
-    .map(player => ({
-      ...player,
-      cumulativeScore: calculateCumulativePoints(player)
-    }))
-    .sort((a, b) => b.cumulativeScore - a.cumulativeScore);
+  const sortedPlayers = useMemo(() => {
+    const playersWithScores = [...(players || [])]
+      .filter(p => p?.isOnline)
+      .map(player => ({
+        ...player,
+        cumulativeScore: calculateCumulativePoints(player)
+      }))
+      .sort((a, b) => b.cumulativeScore - a.cumulativeScore);
+
+    // Update positions for animation
+    const newPositions = new Map<string, number>();
+    playersWithScores.forEach((player, index) => {
+      newPositions.set(player.id, index);
+    });
+    setPlayerPositions(newPositions);
+
+    return playersWithScores;
+  }, [players, currentRoom?.revealedRounds, roundStatistics]);
 
   const winner = sortedPlayers?.[0];
   const topThree = sortedPlayers?.slice(0, 3) || [];
@@ -369,11 +420,16 @@ const Leaderboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="relative" style={{ height: `${sortedPlayers.length * 88}px` }}>
               {sortedPlayers.map((player, index) => (
                 <div
                   key={player.id}
-                  className={`flex items-center justify-between p-4 rounded-lg transition-all ${
+                  ref={(el) => {
+                    if (el) {
+                      playerRefs.current.set(player.id, el);
+                    }
+                  }}
+                  className={`absolute left-0 right-0 flex items-center justify-between p-4 rounded-lg hover:scale-[1.02] ${
                     index === 0
                       ? 'bg-yellow-500/20 border-2 border-yellow-500'
                       : index === 1
@@ -383,6 +439,7 @@ const Leaderboard = () => {
                       : 'bg-muted/50 hover:bg-muted'
                   }`}
                   style={{
+                    top: `${index * 88}px`,
                     animationDelay: `${index * 100}ms`
                   }}
                 >
