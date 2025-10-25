@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,6 +22,14 @@ const QuestionManager = ({ battleId, questions, canEdit }: QuestionManagerProps)
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [newQuestion, setNewQuestion] = useState({
+    text: '',
+    type: 'multiple-choice' as QuestionType,
+    options: ['', '', '', ''],
+    correctAnswer: '',
+    imageUrl: ''
+  });
+
+  const [editingQuestion, setEditingQuestion] = useState({
     text: '',
     type: 'multiple-choice' as QuestionType,
     options: ['', '', '', ''],
@@ -60,6 +69,40 @@ const QuestionManager = ({ battleId, questions, canEdit }: QuestionManagerProps)
     }
   };
 
+  const handleEditQuestion = async () => {
+    if (!editingId) return;
+    
+    if (!editingQuestion.text.trim()) {
+      toast.error('Please enter a question');
+      return;
+    }
+
+    if (editingQuestion.type === 'multiple-choice' && editingQuestion.options?.some(o => !o?.trim())) {
+      toast.error('Please fill all options');
+      return;
+    }
+
+    if (!editingQuestion.correctAnswer) {
+      toast.error('Please set the correct answer');
+      return;
+    }
+
+    try {
+      await updateQuestion(battleId, editingId, editingQuestion);
+      toast.success('Question updated!');
+      setEditingId(null);
+      setEditingQuestion({
+        text: '',
+        type: 'multiple-choice',
+        options: ['', '', '', ''],
+        correctAnswer: '',
+        imageUrl: ''
+      });
+    } catch (error) {
+      toast.error('Failed to update question');
+    }
+  };
+
   const handleDeleteQuestion = async (questionId: string) => {
     try {
       await deleteQuestion(battleId, questionId);
@@ -67,6 +110,17 @@ const QuestionManager = ({ battleId, questions, canEdit }: QuestionManagerProps)
     } catch (error) {
       toast.error('Failed to delete question');
     }
+  };
+
+  const startEditing = (question: Question) => {
+    setEditingId(question.id);
+    setEditingQuestion({
+      text: question.text,
+      type: question.type,
+      options: question.options || ['', '', '', ''],
+      correctAnswer: Array.isArray(question.correctAnswer) ? question.correctAnswer[0] : question.correctAnswer,
+      imageUrl: question.imageUrl || ''
+    });
   };
 
   return (
@@ -103,11 +157,16 @@ const QuestionManager = ({ battleId, questions, canEdit }: QuestionManagerProps)
 
               <div className="space-y-2">
                 <Label>Question Text</Label>
-                <Input
-                  placeholder="Enter your question..."
+                <Textarea
+                  placeholder="Enter your question... (Press Enter for new lines)"
                   value={newQuestion.text}
                   onChange={(e) => setNewQuestion({ ...newQuestion, text: e.target.value })}
+                  className="min-h-[100px] resize-y"
+                  rows={3}
                 />
+                <p className="text-xs text-muted-foreground">
+                  💡 Tip: Press Enter to create multi-line questions for better readability
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -209,6 +268,149 @@ const QuestionManager = ({ battleId, questions, canEdit }: QuestionManagerProps)
         </Dialog>
       )}
 
+      {/* Edit Question Dialog */}
+      {canEdit && (
+        <Dialog open={editingId !== null} onOpenChange={() => setEditingId(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Question</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Question Type</Label>
+                <Select
+                  value={editingQuestion.type}
+                  onValueChange={(value) => setEditingQuestion({ ...editingQuestion, type: value as QuestionType })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true-false">True/False</SelectItem>
+                    <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
+                    <SelectItem value="text-input">Text Input</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Question Text</Label>
+                <Textarea
+                  placeholder="Enter your question... (Press Enter for new lines)"
+                  value={editingQuestion.text}
+                  onChange={(e) => setEditingQuestion({ ...editingQuestion, text: e.target.value })}
+                  className="min-h-[100px] resize-y"
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  💡 Tip: Press Enter to create multi-line questions for better readability
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Image URL (Optional)</Label>
+                <Input
+                  placeholder="https://example.com/image.jpg"
+                  value={editingQuestion.imageUrl}
+                  onChange={(e) => setEditingQuestion({ ...editingQuestion, imageUrl: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Add an image to make it a picture-based question (e.g., "Identify the flag")
+                </p>
+                {editingQuestion.imageUrl && (
+                  <div className="mt-2 p-2 border rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-2">Preview:</p>
+                    <img 
+                      src={editingQuestion.imageUrl} 
+                      alt="Question preview" 
+                      className="max-w-full h-auto max-h-40 sm:max-h-48 rounded-md"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        toast.error('Invalid image URL');
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {editingQuestion.type === 'true-false' && (
+                <div className="space-y-2">
+                  <Label>Correct Answer</Label>
+                  <Select
+                    value={editingQuestion.correctAnswer}
+                    onValueChange={(value) => setEditingQuestion({ ...editingQuestion, correctAnswer: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select correct answer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true">True</SelectItem>
+                      <SelectItem value="false">False</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {editingQuestion.type === 'multiple-choice' && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Options</Label>
+                    {editingQuestion.options?.map((option, index) => (
+                      <Input
+                        key={index}
+                        placeholder={`Option ${index + 1}`}
+                        value={option}
+                        onChange={(e) => {
+                          const newOptions = [...editingQuestion.options];
+                          newOptions[index] = e.target.value;
+                          setEditingQuestion({ ...editingQuestion, options: newOptions });
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Correct Answer</Label>
+                    <Select
+                      value={editingQuestion.correctAnswer}
+                      onValueChange={(value) => setEditingQuestion({ ...editingQuestion, correctAnswer: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select correct answer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {editingQuestion.options?.map((option, index) => (
+                          option && <SelectItem key={index} value={option}>{option}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+
+              {editingQuestion.type === 'text-input' && (
+                <div className="space-y-2">
+                  <Label>Correct Answer</Label>
+                  <Input
+                    placeholder="Enter correct answer..."
+                    value={editingQuestion.correctAnswer}
+                    onChange={(e) => setEditingQuestion({ ...editingQuestion, correctAnswer: e.target.value })}
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button onClick={handleEditQuestion} className="flex-1">
+                  Update Question
+                </Button>
+                <Button variant="outline" onClick={() => setEditingId(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       <div className="space-y-3">
         {questions.length === 0 ? (
           <Card>
@@ -234,7 +436,7 @@ const QuestionManager = ({ battleId, questions, canEdit }: QuestionManagerProps)
                         {question.type}
                       </span>
                     </div>
-                    <p className="font-medium mb-2">{question.text}</p>
+                    <div className="font-medium mb-2 whitespace-pre-line">{question.text}</div>
                     {question.imageUrl && (
                       <div className="my-3">
                         <img 
@@ -258,13 +460,24 @@ const QuestionManager = ({ battleId, questions, canEdit }: QuestionManagerProps)
                     )}
                   </div>
                   {canEdit && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteQuestion(question.id)}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => startEditing(question)}
+                        title="Edit question"
+                      >
+                        <Edit className="w-4 h-4 text-primary" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteQuestion(question.id)}
+                        title="Delete question"
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
                   )}
                 </div>
               </CardContent>

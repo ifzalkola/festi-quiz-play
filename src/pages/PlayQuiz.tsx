@@ -19,6 +19,8 @@ const PlayQuiz = () => {
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [timerStarted, setTimerStarted] = useState<Date | null>(null);
+  const [randomizedOptions, setRandomizedOptions] = useState<string[]>([]);
+  const [optionMapping, setOptionMapping] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     const storedPlayerId = localStorage.getItem('current_player_id');
@@ -52,13 +54,39 @@ const PlayQuiz = () => {
     return () => clearInterval(interval);
   }, [currentQuestion]);
 
-  // Reset answer state when new question appears
+  // Reset answer state and randomize options when new question appears
   useEffect(() => {
     if (currentQuestion) {
       setHasAnswered(false);
       setIsSubmitting(false);
       setSelectedAnswer('');
       setTextAnswer('');
+      
+      // Randomize options for multiple choice questions
+      if (currentQuestion.question.type === 'multiple-choice' && currentQuestion.question.options) {
+        const options = [...currentQuestion.question.options];
+        
+        // Create a mapping from randomized position to original option
+        const mapping = new Map<string, string>();
+        
+        // Shuffle the options array
+        for (let i = options.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [options[i], options[j]] = [options[j], options[i]];
+        }
+        
+        // Create mapping: randomized option -> original option
+        options.forEach((randomizedOption, index) => {
+          const originalOption = currentQuestion.question.options![index];
+          mapping.set(randomizedOption, originalOption);
+        });
+        
+        setRandomizedOptions(options);
+        setOptionMapping(mapping);
+      } else {
+        setRandomizedOptions([]);
+        setOptionMapping(new Map());
+      }
     }
   }, [currentQuestion?.question.id]);
 
@@ -150,7 +178,15 @@ const PlayQuiz = () => {
       return;
     }
 
-    const answer = currentQuestion?.question?.type === 'text-input' ? textAnswer : selectedAnswer;
+    let answer = currentQuestion?.question?.type === 'text-input' ? textAnswer : selectedAnswer;
+    
+    // For multiple choice questions, map randomized answer back to original answer
+    if (currentQuestion?.question?.type === 'multiple-choice' && answer) {
+      const originalAnswer = optionMapping.get(answer);
+      if (originalAnswer) {
+        answer = originalAnswer;
+      }
+    }
     
     if (!answer.trim()) {
       toast.error('Please select or enter an answer');
@@ -189,15 +225,14 @@ const PlayQuiz = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 p-2 sm:p-4 lg:p-6">
+      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 pb-4 sm:pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold">{currentBattle.name}</h1>
-                <p className="text-sm text-muted-foreground">Battle Code: {currentBattle.code}</p>
+                <h1 className="text-xl sm:text-2xl font-bold">{currentBattle.name}</h1>
               </div>
             </div>
           </CardContent>
@@ -206,13 +241,13 @@ const PlayQuiz = () => {
         {/* Waiting for Question */}
         {!currentQuestion && (
           <Card className="border-dashed">
-            <CardContent className="pt-12 pb-12 text-center space-y-4">
-              <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            <CardContent className="pt-8 pb-8 sm:pt-12 sm:pb-12 text-center space-y-4">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 text-primary animate-spin" />
               </div>
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold">Waiting for Next Question</h2>
-                <p className="text-muted-foreground">
+                <h2 className="text-xl sm:text-2xl font-bold">Waiting for Next Question</h2>
+                <p className="text-sm sm:text-base text-muted-foreground">
                   The host will publish the next question shortly...
                 </p>
               </div>
@@ -225,13 +260,13 @@ const PlayQuiz = () => {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Timer */}
             <Card className="overflow-hidden">
-              <div className="p-4 bg-muted/50">
+              <div className="p-3 sm:p-4 bg-muted/50">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-primary" />
-                    <span className="font-medium">Time Remaining</span>
+                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                    <span className="text-sm sm:text-base font-medium">Time Remaining</span>
                   </div>
-                  <span className="text-2xl font-bold tabular-nums">
+                  <span className="text-xl sm:text-2xl font-bold tabular-nums">
                     {Math.ceil(timeRemaining)}s
                   </span>
                 </div>
@@ -241,13 +276,13 @@ const PlayQuiz = () => {
 
             {/* Question */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-2xl">
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="text-lg sm:text-xl lg:text-2xl whitespace-pre-line leading-tight">
                   {currentQuestion.question.text}
                 </CardTitle>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground mt-2">
                   <span className="flex items-center gap-1">
-                    <Trophy className="w-4 h-4" />
+                    <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
                     {currentQuestion.basePoints} points
                   </span>
                   <span>
@@ -255,28 +290,28 @@ const PlayQuiz = () => {
                   </span>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="pt-0 space-y-3 sm:space-y-4">
                 {/* Image Display */}
                 {currentQuestion.question.imageUrl && (
-                  <div className="w-full flex justify-center mb-6">
+                  <div className="w-full flex justify-center mb-4 sm:mb-6">
                     <img 
                       src={currentQuestion.question.imageUrl} 
                       alt="Question" 
-                      className="max-w-full h-auto max-h-64 sm:max-h-80 md:max-h-96 rounded-lg border-2 border-border shadow-lg"
+                      className="max-w-full h-auto max-h-48 sm:max-h-64 md:max-h-80 lg:max-h-96 rounded-lg border-2 border-border shadow-lg"
                     />
                   </div>
                 )}
                 {/* True/False */}
                 {currentQuestion.question.type === 'true-false' && (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     <Button
                       size="lg"
                       variant={selectedAnswer === 'true' ? 'default' : 'outline'}
                       onClick={() => !hasAnswered && !isSubmitting && setSelectedAnswer('true')}
                       disabled={hasAnswered || isSubmitting || timeRemaining <= 0}
-                      className="h-20 text-lg"
+                      className="h-16 sm:h-20 text-base sm:text-lg"
                     >
-                      <CheckCircle className="w-6 h-6 mr-2" />
+                      <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
                       True
                     </Button>
                     <Button
@@ -284,30 +319,30 @@ const PlayQuiz = () => {
                       variant={selectedAnswer === 'false' ? 'default' : 'outline'}
                       onClick={() => !hasAnswered && !isSubmitting && setSelectedAnswer('false')}
                       disabled={hasAnswered || isSubmitting || timeRemaining <= 0}
-                      className="h-20 text-lg"
+                      className="h-16 sm:h-20 text-base sm:text-lg"
                     >
-                      <XCircle className="w-6 h-6 mr-2" />
+                      <XCircle className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
                       False
                     </Button>
                   </div>
                 )}
 
                 {/* Multiple Choice */}
-                {currentQuestion.question.type === 'multiple-choice' && currentQuestion.question.options && currentQuestion.question.options.length > 0 && (
-                  <div className="space-y-3">
-                    {currentQuestion.question.options.map((option, idx) => (
+                {currentQuestion.question.type === 'multiple-choice' && randomizedOptions.length > 0 && (
+                  <div className="space-y-2 sm:space-y-3">
+                    {randomizedOptions.map((option, idx) => (
                       <Button
                         key={idx}
                         size="lg"
                         variant={selectedAnswer === option ? 'default' : 'outline'}
                         onClick={() => !hasAnswered && !isSubmitting && setSelectedAnswer(option)}
                         disabled={hasAnswered || isSubmitting || timeRemaining <= 0}
-                        className="w-full h-auto min-h-[60px] text-left justify-start whitespace-normal p-4"
+                        className="w-full h-auto min-h-[50px] sm:min-h-[60px] text-left justify-start whitespace-normal p-3 sm:p-4"
                       >
-                        <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-3 flex-shrink-0">
+                        <span className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-primary/10 flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0 text-xs sm:text-sm font-semibold">
                           {String.fromCharCode(65 + idx)}
                         </span>
-                        <span className="flex-1">{option}</span>
+                        <span className="flex-1 text-sm sm:text-base">{option}</span>
                       </Button>
                     ))}
                   </div>
@@ -321,7 +356,7 @@ const PlayQuiz = () => {
                       value={textAnswer}
                       onChange={(e) => setTextAnswer(e.target.value)}
                       disabled={hasAnswered || isSubmitting || timeRemaining <= 0}
-                      className="text-lg h-14"
+                      className="text-base sm:text-lg h-12 sm:h-14"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !hasAnswered && !isSubmitting && textAnswer.trim()) {
                           handleSubmitAnswer();
@@ -341,7 +376,7 @@ const PlayQuiz = () => {
                       (currentQuestion?.question?.type !== 'text-input' && !selectedAnswer)
                     }
                     size="lg"
-                    className="w-full mt-4"
+                    className="w-full mt-3 sm:mt-4 h-12 sm:h-14 text-base sm:text-lg"
                   >
                     {isSubmitting ? (
                       <>
@@ -357,12 +392,12 @@ const PlayQuiz = () => {
                 {/* Answer Submitted State */}
                 {hasAnswered && (
                   <Card className="bg-green-500/10 border-green-500/20">
-                    <CardContent className="pt-6 text-center space-y-2">
-                      <CheckCircle className="w-12 h-12 text-green-600 mx-auto" />
-                      <h3 className="text-lg font-semibold text-green-600">
+                    <CardContent className="pt-4 pb-4 sm:pt-6 text-center space-y-2">
+                      <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-600 mx-auto" />
+                      <h3 className="text-base sm:text-lg font-semibold text-green-600">
                         Answer Submitted!
                       </h3>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         Waiting for other players and the next question...
                       </p>
                     </CardContent>
@@ -372,12 +407,12 @@ const PlayQuiz = () => {
                 {/* Time Up State */}
                 {!hasAnswered && timeRemaining <= 0 && (
                   <Card className="bg-red-500/10 border-red-500/20">
-                    <CardContent className="pt-6 text-center space-y-2">
-                      <XCircle className="w-12 h-12 text-red-600 mx-auto" />
-                      <h3 className="text-lg font-semibold text-red-600">
+                    <CardContent className="pt-4 pb-4 sm:pt-6 text-center space-y-2">
+                      <XCircle className="w-10 h-10 sm:w-12 sm:h-12 text-red-600 mx-auto" />
+                      <h3 className="text-base sm:text-lg font-semibold text-red-600">
                         Time's Up!
                       </h3>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         Waiting for the next question...
                       </p>
                     </CardContent>
@@ -388,8 +423,8 @@ const PlayQuiz = () => {
 
             {/* Scoring Info */}
             <Card>
-              <CardContent className="pt-4">
-                <div className="text-center text-sm text-muted-foreground">
+              <CardContent className="pt-3 pb-3 sm:pt-4">
+                <div className="text-center text-xs sm:text-sm text-muted-foreground">
                   <p>
                     {currentQuestion.scoringMode === 'time-based' && 
                       '⚡ Answer quickly to earn more points!'}

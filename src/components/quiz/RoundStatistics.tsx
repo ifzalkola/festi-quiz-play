@@ -129,7 +129,7 @@ const RoundStatistics = ({ roundStats, isFinalLeaderboard = false }: RoundStatis
                     {/* Question Details */}
                     <div className="mb-4 p-3 bg-muted/50 rounded-lg">
                       <h4 className="font-semibold mb-2">Question:</h4>
-                      <p className="text-sm">{round.questionText}</p>
+                      <div className="text-sm whitespace-pre-line">{round.questionText}</div>
                       {round.imageUrl && (
                         <div className="mt-3 flex justify-center">
                           <img 

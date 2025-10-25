@@ -259,7 +259,7 @@ const QuizControl = () => {
                   <>
                     <div className="space-y-4">
                       <div className="p-4 bg-muted rounded-lg">
-                        <p className="text-lg font-medium">{currentQ.text}</p>
+                        <div className="text-lg font-medium whitespace-pre-line">{currentQ.text}</div>
                       </div>
 
                       {/* Image Display */}
