@@ -34,11 +34,11 @@ const PlayerList = ({ players, showReady = false, showScores = false }: PlayerLi
               )}
               <Avatar className="w-8 h-8">
                 <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-xs">
-                  {player?.name?.slice(0, 2)?.toUpperCase() || '??'}
+                  {player?.displayName?.slice(0, 2)?.toUpperCase() || '??'}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-medium text-sm">{player.name}</p>
+                <p className="font-medium text-sm">{player.displayName}</p>
                 {showScores && (
                   <p className="text-xs text-muted-foreground">
                     {player.score} points

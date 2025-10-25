@@ -168,7 +168,7 @@ const RoundStatistics = ({ roundStats, isFinalLeaderboard = false }: RoundStatis
                               {answerIndex + 1}
                             </div>
                             <div>
-                              <p className="font-medium">{answer.playerName}</p>
+                              <p className="font-medium">{answer.displayName}</p>
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <span>Answer: {answer.answer}</span>
                                 <span>•</span>

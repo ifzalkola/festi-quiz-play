@@ -32,7 +32,7 @@ interface FirebaseBattle {
 
 interface FirebasePlayer {
   id: string;
-  name: string;
+  displayName: string;
   battleId: string;
   score: number;
   isReady: boolean;
@@ -75,7 +75,7 @@ export interface QuizBattle {
 
 export interface Player {
   id: string;
-  name: string;
+  displayName: string;
   battleId: string;
   score: number;
   isReady: boolean;
@@ -96,7 +96,7 @@ export interface CurrentQuestion {
 
 export interface Answer {
   playerId: string;
-  playerName: string;
+  displayName: string;
   answer: string;
   timeTaken: number;
   isCorrect: boolean;
@@ -127,7 +127,7 @@ export interface Contest {
 
 export interface ContestPlayerScore {
   playerId: string;
-  playerName: string;
+  displayName: string;
   totalScore: number;
   battleScores: { [battleId: string]: number };
 }
@@ -143,7 +143,7 @@ interface QuizContextType {
   
   // Actions
   createBattle: (name: string, ownerName: string, maxPlayers: number) => Promise<string>;
-  joinBattle: (code: string, playerName: string) => Promise<void>;
+  joinBattle: (code: string) => Promise<void>;
   addQuestion: (battleId: string, question: Omit<Question, 'id'>) => Promise<void>;
   updateQuestion: (battleId: string, questionId: string, updates: Partial<Question>) => Promise<void>;
   deleteQuestion: (battleId: string, questionId: string) => Promise<void>;
@@ -178,7 +178,7 @@ interface QuizContextType {
   // Utility functions
   clearBattleState: () => void;
   loadBattle: (battleId: string) => void;
-  canRejoinBattle: (code: string) => Promise<{ canRejoin: boolean; playerName?: string; message?: string }>;
+  canRejoinBattle: (code: string) => Promise<{ canRejoin: boolean; displayName?: string; message?: string }>;
 }
 
 const QuizContext = createContext<QuizContextType | undefined>(undefined);
@@ -271,9 +271,26 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     return battleId;
   };
 
-  const joinBattle = async (code: string, playerName: string): Promise<void> => {
+  const joinBattle = async (code: string): Promise<void> => {
     if (!currentUserId) throw new Error('User not authenticated');
     if (!hasPermission('canJoinBattles')) throw new Error('You do not have permission to join battles');
+    
+    // Get current user's display name
+    const usersRef = ref(database, 'users');
+    const usersSnapshot = await get(usersRef);
+    
+    if (!usersSnapshot.exists()) {
+      throw new Error('User data not found');
+    }
+    
+    const users = usersSnapshot.val() as Record<string, any>;
+    const currentUserData = Object.values(users).find((u: any) => u.userId === currentUserId);
+    
+    if (!currentUserData) {
+      throw new Error('User profile not found');
+    }
+    
+    const playerName = currentUserData.displayName || currentUserData.userId;
     
     // Find battle by code
     const battlesRef = ref(database, 'battles');
@@ -320,7 +337,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
       const playerRef = ref(database, `players/${existingPlayerId}`);
       await update(playerRef, {
         isOnline: true,
-        name: playerName, // Update name in case they want to change it
+        displayName: playerName, // Update displayName in case they want to change it
         rejoinedAt: new Date().toISOString()
       });
       
@@ -356,7 +373,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     
     const newPlayer = {
       id: playerId,
-      name: playerName,
+      displayName: playerName,
       battleId: foundBattleId,
       score: 0,
       isReady: false,
@@ -584,7 +601,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     const answerRef = push(ref(database, `answers/${currentBattle.id}`));
     await set(answerRef, {
       playerId,
-      playerName: player.name,
+      displayName: player.displayName,
       answer,
       timeTaken,
       isCorrect,
@@ -1189,7 +1206,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     setCurrentBattleId(battleId);
   };
 
-  const canRejoinBattle = async (code: string): Promise<{ canRejoin: boolean; playerName?: string; message?: string }> => {
+  const canRejoinBattle = async (code: string): Promise<{ canRejoin: boolean; displayName?: string; message?: string }> => {
     if (!currentUserId) {
       return { canRejoin: false, message: 'User not authenticated' };
     }
@@ -1225,7 +1242,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
           if (player.battleId === foundBattleId && player.userId === currentUserId) {
             return { 
               canRejoin: true, 
-              playerName: player.name,
+              displayName: player.displayName,
               message: 'You can rejoin this battle'
             };
           }
@@ -1398,7 +1415,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         // Create new player score entry
         playerScores.set(player.userId, {
           playerId: player.userId,
-          playerName: player.name,
+          displayName: player.displayName,
           totalScore: player.score,
           battleScores: { [player.battleId]: player.score }
         });
@@ -1473,6 +1490,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
           .filter((p) => p.battleId === battleId)
           .map((p) => ({
             ...p,
+            displayName: p.displayName,
             joinedAt: new Date(p.joinedAt),
             rejoinedAt: p.rejoinedAt ? new Date(p.rejoinedAt) : undefined
           }));

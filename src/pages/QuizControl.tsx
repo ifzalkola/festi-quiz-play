@@ -459,7 +459,7 @@ const QuizControl = () => {
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <span className="font-medium">{answer.playerName}</span>
+                          <span className="font-medium">{answer.displayName}</span>
                           <span className="text-sm text-muted-foreground">{answer.timeTaken.toFixed(1)}s</span>
                         </div>
                         <div className="flex items-center gap-3">

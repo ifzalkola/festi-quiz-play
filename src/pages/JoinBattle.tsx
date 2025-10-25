@@ -14,9 +14,8 @@ const JoinBattle = () => {
   const navigate = useNavigate();
   const { joinBattle, canRejoinBattle } = useQuiz();
   const [battleCode, setBattleCode] = useState('');
-  const [playerName, setPlayerName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [rejoinInfo, setRejoinInfo] = useState<{ canRejoin: boolean; playerName?: string; message?: string } | null>(null);
+  const [rejoinInfo, setRejoinInfo] = useState<{ canRejoin: boolean; displayName?: string; message?: string } | null>(null);
   const [isCheckingRejoin, setIsCheckingRejoin] = useState(false);
 
   const handleCheckRejoin = async () => {
@@ -29,9 +28,6 @@ const JoinBattle = () => {
     try {
       const result = await canRejoinBattle(battleCode.toUpperCase());
       setRejoinInfo(result);
-      if (result.canRejoin && result.playerName) {
-        setPlayerName(result.playerName);
-      }
     } catch (error) {
       toast.error('Failed to check rejoin status');
       console.error(error);
@@ -43,14 +39,14 @@ const JoinBattle = () => {
   const handleJoinBattle = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!battleCode.trim() || !playerName.trim()) {
-      toast.error('Please fill in all fields');
+    if (!battleCode.trim()) {
+      toast.error('Please enter a battle code');
       return;
     }
 
     setIsLoading(true);
     try {
-      await joinBattle(battleCode.toUpperCase(), playerName);
+      await joinBattle(battleCode.toUpperCase());
       if (rejoinInfo?.canRejoin) {
         toast.success('Rejoined battle successfully! Your progress has been restored.');
       } else {
@@ -129,7 +125,7 @@ const JoinBattle = () => {
                       <>
                         <CheckCircle className="w-4 h-4 text-green-600" />
                         <span className="text-green-800">
-                          Welcome back! You can rejoin as <strong>{rejoinInfo.playerName}</strong>. 
+                          Welcome back! You can rejoin as <strong>{rejoinInfo.displayName}</strong>. 
                           Your progress will be restored.
                         </span>
                       </>
@@ -143,16 +139,6 @@ const JoinBattle = () => {
                 </Alert>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="playerName">Your Name</Label>
-                <Input
-                  id="playerName"
-                  placeholder="Enter your name"
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  maxLength={30}
-                />
-              </div>
 
               <Button
                 type="submit"

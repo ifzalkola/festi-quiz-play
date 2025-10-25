@@ -23,6 +23,7 @@ export interface AppUser {
   uid: string;
   userId: string; 
   email: string;
+  displayName: string;
   role: UserRole;
   permissions: Permission;
   createdAt: string;
@@ -35,8 +36,9 @@ interface AuthContextType {
   loading: boolean;
   signIn: (userId: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  createUser: (userId: string, email: string, password: string, role: UserRole, permissions?: Partial<Permission>) => Promise<void>;
+  createUser: (userId: string, email: string, password: string, displayName: string, role: UserRole, permissions?: Partial<Permission>) => Promise<void>;
   updateUserPermissions: (userId: string, permissions: Partial<Permission>) => Promise<void>;
+  updateDisplayName: (userId: string, displayName: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   getAllUsers: () => Promise<AppUser[]>;
   hasPermission: (permission: keyof Permission) => boolean;
@@ -57,8 +59,8 @@ export const useAuth = () => {
 const defaultPermissions: Permission = {
   canCreateBattles: true,
   canJoinBattles: true,
-  canManageUsers: true,
-  canDeleteBattles: true,
+  canManageUsers: false,
+  canDeleteBattles: false,
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -156,8 +158,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     userId: string,
     email: string,
     password: string,
-    role: UserRole = 'admin',
-    permissions?: Partial<Permission>
+    displayName: string,
+    role: UserRole = 'user',
+    permissions: Permission = defaultPermissions
   ) => {
     if (!currentUser || currentUser.role !== 'admin') {
       throw new Error('Only admins can create users');
@@ -190,8 +193,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         uid: authUser.uid,
         userId,
         email,
-        role: 'admin', // All users are admin
-        permissions: fullPermissions,
+        displayName,
+        role,
+        permissions,
         createdAt: new Date().toISOString(),
       };
 
@@ -234,6 +238,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
       console.error('Update permissions error:', error);
       throw new Error(error.message || 'Failed to update permissions');
+    }
+  };
+
+  const updateDisplayName = async (userId: string, displayName: string) => {
+    if (!currentUser || currentUser.role !== 'admin' && currentUser.userId !== userId) {
+      throw new Error('You can only update your own display name');
+    }
+
+    if (!displayName.trim()) {
+      throw new Error('Display name cannot be empty');
+    }
+
+    try {
+      const userRef = ref(database, `users/${userId}`);
+      await update(userRef, { displayName: displayName.trim() });
+      
+      // Update current user state
+      setCurrentUser(prev => prev ? { ...prev, displayName: displayName.trim() } : null);
+    } catch (error: any) {
+      console.error('Update display name error:', error);
+      throw new Error(error.message || 'Failed to update display name');
     }
   };
 
@@ -291,6 +316,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signOut,
     createUser,
     updateUserPermissions,
+    updateDisplayName,
     deleteUser,
     getAllUsers,
     hasPermission,

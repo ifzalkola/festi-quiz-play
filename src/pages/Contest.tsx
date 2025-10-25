@@ -115,9 +115,9 @@ const Contest = () => {
     if (!contest || !winner) return;
     
     const text = `🏆 Contest Results for "${contest.name}"\n\n` +
-      `🥇 Winner: ${winner.playerName} (${winner.totalScore} points)\n\n` +
+      `🥇 Winner: ${winner.displayName} (${winner.totalScore} points)\n\n` +
       `Top 3:\n` +
-      topThree.map((p, i) => `${i + 1}. ${p.playerName} - ${p.totalScore} points`).join('\n') +
+      topThree.map((p, i) => `${i + 1}. ${p.displayName} - ${p.totalScore} points`).join('\n') +
       `\n\nContest Code: ${contest.code}`;
     
     if (navigator.share) {
@@ -261,7 +261,7 @@ const Contest = () => {
               <div className="space-y-2">
                 <h2 className="text-3xl font-bold">🏆 Contest Champion 🏆</h2>
                 <p className="text-4xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-                  {winner.playerName}
+                  {winner.displayName}
                 </p>
                 <p className="text-5xl font-black text-yellow-500">
                   {winner.totalScore} <span className="text-2xl">points</span>
@@ -282,7 +282,7 @@ const Contest = () => {
                     <Medal className="w-8 h-8 text-gray-600 dark:text-gray-300" />
                   </div>
                   <div className="text-4xl font-bold">2nd</div>
-                  <p className="font-semibold truncate">{topThree[1].playerName}</p>
+                  <p className="font-semibold truncate">{topThree[1].displayName}</p>
                   <p className="text-2xl font-bold text-gray-600 dark:text-gray-300">
                     {topThree[1].totalScore}
                   </p>
@@ -297,7 +297,7 @@ const Contest = () => {
                   <Crown className="w-10 h-10 text-yellow-900" />
                 </div>
                 <div className="text-5xl font-bold">1st</div>
-                <p className="font-bold truncate text-lg">{topThree[0].playerName}</p>
+                <p className="font-bold truncate text-lg">{topThree[0].displayName}</p>
                 <p className="text-3xl font-black text-yellow-600 dark:text-yellow-400">
                   {topThree[0].totalScore}
                 </p>
@@ -312,7 +312,7 @@ const Contest = () => {
                     <Award className="w-8 h-8 text-orange-600 dark:text-orange-300" />
                   </div>
                   <div className="text-4xl font-bold">3rd</div>
-                  <p className="font-semibold truncate">{topThree[2].playerName}</p>
+                  <p className="font-semibold truncate">{topThree[2].displayName}</p>
                   <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                     {topThree[2].totalScore}
                   </p>
@@ -372,7 +372,7 @@ const Contest = () => {
                           {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
                         </div>
                         <div>
-                          <p className="font-semibold">{player.playerName}</p>
+                          <p className="font-semibold">{player.displayName}</p>
                           <p className="text-xs text-muted-foreground">
                             {index === 0 && '👑 Champion'}
                             {index === 1 && '🥈 Runner-up'}

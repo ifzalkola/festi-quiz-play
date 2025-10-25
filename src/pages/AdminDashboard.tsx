@@ -18,8 +18,8 @@ import { useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 const AdminDashboard = () => {
-  const { currentUser, isAdmin, getAllUsers, createUser, updateUserPermissions, deleteUser, signOut } = useAuth();
-  const { getAllBattles, deleteBattle, getAllContests, createContest, deleteContest } = useQuiz();
+  const { currentUser, isAdmin, getAllUsers, createUser, updateUserPermissions, updateDisplayName, deleteUser, signOut } = useAuth();
+  const { getAllBattles, deleteBattle, getAllContests, createContest, deleteContest, updateContest } = useQuiz();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [battles, setBattles] = useState<QuizBattle[]>([]);
   const [contests, setContests] = useState<Contest[]>([]);
@@ -29,12 +29,15 @@ const AdminDashboard = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createContestDialogOpen, setCreateContestDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
+  const [editingDisplayName, setEditingDisplayName] = useState(false);
+  const [newDisplayNameValue, setNewDisplayNameValue] = useState(currentUser?.displayName || '');
   const navigate = useNavigate();
 
   // Create user form state
   const [newUserId, setNewUserId] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newDisplayName, setNewDisplayName] = useState('');
   const [newRole, setNewRole] = useState<UserRole>('user');
   const [newPermissions, setNewPermissions] = useState<Permission>({
     canCreateBattles: true,
@@ -51,9 +54,15 @@ const AdminDashboard = () => {
     canDeleteBattles: false,
   });
 
+  const [editDisplayName, setEditDisplayName] = useState('');
+
   // Create contest form state
   const [newContestName, setNewContestName] = useState('');
   const [selectedBattleIds, setSelectedBattleIds] = useState<string[]>([]);
+  const [editContestDialogOpen, setEditContestDialogOpen] = useState(false);
+  const [editingContest, setEditingContest] = useState<Contest | null>(null);
+  const [editContestName, setEditContestName] = useState('');
+  const [editSelectedBattleIds, setEditSelectedBattleIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isAdmin()) {
@@ -101,8 +110,18 @@ const AdminDashboard = () => {
     }
   };
 
+  const isBattleInContest = (battleId: string): boolean => {
+    return contests.some(contest => contest.battleIds.includes(battleId));
+  };
+
   const handleDeleteBattle = async (battleId: string, battleName: string) => {
     if (!confirm(`Are you sure you want to delete "${battleName}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    // Check if battle is part of any contest
+    if (isBattleInContest(battleId)) {
+      toast.error(`Cannot delete "${battleName}" because it is part of an active contest. Please remove it from all contests first.`);
       return;
     }
     
@@ -127,11 +146,25 @@ const AdminDashboard = () => {
     }
   };
 
+  const getContestBadge = (battleId: string) => {
+    const contestNames = contests
+      .filter(contest => contest.battleIds.includes(battleId))
+      .map(contest => contest.name);
+    
+    if (contestNames.length === 0) {
+      return <Badge variant="outline" className="text-muted-foreground">None</Badge>;
+    } else if (contestNames.length === 1) {
+      return <Badge variant="default">{contestNames[0]}</Badge>;
+    } else {
+      return <Badge variant="default">{contestNames.length} contests</Badge>;
+    }
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
-      await createUser(newUserId, newEmail, newPassword, newRole, newPermissions);
+      await createUser(newUserId, newEmail, newPassword, newDisplayName, newRole, newPermissions);
       toast.success(`User ${newUserId} created successfully!`);
       toast.success(`User can now login with User ID: ${newUserId}`);
       
@@ -139,6 +172,7 @@ const AdminDashboard = () => {
       setNewUserId('');
       setNewEmail('');
       setNewPassword('');
+      setNewDisplayName('');
       setNewRole('user');
       setNewPermissions({
         canCreateBattles: true,
@@ -154,16 +188,20 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleUpdatePermissions = async () => {
+  const handleUpdateUserProfile = async () => {
     if (!editingUser) return;
     
     try {
       await updateUserPermissions(editingUser.userId, editPermissions);
-      toast.success('Permissions updated successfully!');
+
+      if(editDisplayName.trim() && editDisplayName.trim() !== editingUser.displayName) {
+        await updateDisplayName(editingUser.userId, editDisplayName.trim());
+      }
+      toast.success('User profile updated successfully!');
       setEditingUser(null);
       loadUsers();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to update permissions');
+      toast.error(error.message || 'Failed to update user profile');
     }
   };
 
@@ -223,6 +261,52 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleEditContest = (contest: Contest) => {
+    setEditingContest(contest);
+    setEditContestName(contest.name);
+    setEditSelectedBattleIds([...contest.battleIds]);
+    setEditContestDialogOpen(true);
+  };
+
+  const handleUpdateContest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!editingContest) return;
+    
+    if (!editContestName.trim()) {
+      toast.error('Contest name is required');
+      return;
+    }
+    
+    if (editSelectedBattleIds.length === 0) {
+      toast.error('Please select at least one battle');
+      return;
+    }
+    
+    try {
+      await updateContest(editingContest.id, {
+        name: editContestName.trim(),
+        battleIds: editSelectedBattleIds
+      });
+      toast.success(`Contest "${editContestName}" updated successfully!`);
+      setEditContestDialogOpen(false);
+      setEditingContest(null);
+      setEditContestName('');
+      setEditSelectedBattleIds([]);
+      loadContests();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update contest');
+    }
+  };
+
+  const handleEditBattleSelection = (battleId: string, checked: boolean) => {
+    if (checked) {
+      setEditSelectedBattleIds([...editSelectedBattleIds, battleId]);
+    } else {
+      setEditSelectedBattleIds(editSelectedBattleIds.filter(id => id !== battleId));
+    }
+  };
+
   const handleBattleSelection = (battleId: string, checked: boolean) => {
     if (checked) {
       setSelectedBattleIds([...selectedBattleIds, battleId]);
@@ -237,6 +321,22 @@ const AdminDashboard = () => {
       navigate('/login');
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign out');
+    }
+  };
+
+  const handleUpdateDisplayName = async () => {
+    if (!currentUser || !newDisplayNameValue.trim()) {
+      toast.error('Please enter a display name');
+      return;
+    }
+
+    try {
+      await updateDisplayName(currentUser.userId, newDisplayNameValue.trim());
+      toast.success('Display name updated successfully!');
+      setEditingDisplayName(false);
+      loadUsers(); // Refresh users list
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update display name');
     }
   };
 
@@ -290,6 +390,63 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
 
+        {/* Display Name Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Display Name</CardTitle>
+            <CardDescription>
+              This is the name that will be shown when you join battles
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {editingDisplayName ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="displayName">Display Name</Label>
+                  <Input
+                    id="displayName"
+                    value={newDisplayNameValue}
+                    onChange={(e) => setNewDisplayNameValue(e.target.value)}
+                    placeholder="Enter your display name"
+                    maxLength={30}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleUpdateDisplayName}>
+                    Save Changes
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setEditingDisplayName(false);
+                      setNewDisplayNameValue(currentUser?.displayName || '');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Current display name:</p>
+                  <p className="font-medium">{currentUser?.displayName || 'Not set'}</p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setEditingDisplayName(true);
+                    setNewDisplayNameValue(currentUser?.displayName || '');
+                  }}
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Users List - Only for Admins */}
         {isAdmin() && (
           <Card>
@@ -340,6 +497,18 @@ const AdminDashboard = () => {
                       </div>
                       
                       <div className="space-y-2">
+                        <Label htmlFor="displayName">Display Name *</Label>
+                        <Input
+                          id="displayName"
+                          value={newDisplayName}
+                          onChange={(e) => setNewDisplayName(e.target.value)}
+                          placeholder="John Doe"
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">Name shown when joining battles</p>
+                      </div>
+                      
+                      <div className="space-y-2">
                         <Label htmlFor="password">Password *</Label>
                         <Input
                           id="password"
@@ -375,6 +544,7 @@ const AdminDashboard = () => {
                       <TableRow>
                         <TableHead>User ID</TableHead>
                         <TableHead>Email</TableHead>
+                        <TableHead>Display Name</TableHead>
                         <TableHead>Role</TableHead>
                         <TableHead>Permissions</TableHead>
                         <TableHead>Created</TableHead>
@@ -387,6 +557,7 @@ const AdminDashboard = () => {
                         <TableRow key={user.userId}>
                           <TableCell className="font-mono">{user.userId}</TableCell>
                           <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.displayName || 'Not set'}</TableCell>
                           <TableCell>
                             <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
                               {user.role}
@@ -414,6 +585,7 @@ const AdminDashboard = () => {
                                 onClick={() => {
                                   setEditingUser(user);
                                   setEditPermissions(user.permissions);
+                                  setEditDisplayName(user.displayName || '');
                                 }}
                               >
                                 <Edit className="h-4 w-4" />
@@ -473,6 +645,7 @@ const AdminDashboard = () => {
                       <TableHead>Code</TableHead>
                       {isAdmin() && <TableHead>Owner</TableHead>}
                       <TableHead>Status</TableHead>
+                      <TableHead>Contest</TableHead>
                       <TableHead>Questions</TableHead>
                       <TableHead>Max Players</TableHead>
                       <TableHead>Created</TableHead>
@@ -486,6 +659,7 @@ const AdminDashboard = () => {
                         <TableCell className="font-mono">{battle.code}</TableCell>
                         {isAdmin() && <TableCell>{battle.ownerName}</TableCell>}
                         <TableCell>{getBattleStatusBadge(battle)}</TableCell>
+                        <TableCell>{getContestBadge(battle.id)}</TableCell>
                         <TableCell>{battle.questions ? battle.questions.length : 0}</TableCell>
                         <TableCell>{battle.maxPlayers}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
@@ -521,6 +695,8 @@ const AdminDashboard = () => {
                               size="sm"
                               variant="destructive"
                               onClick={() => handleDeleteBattle(battle.id, battle.name)}
+                              disabled={isBattleInContest(battle.id)}
+                              title={isBattleInContest(battle.id) ? "Cannot delete battle that is part of a contest" : "Delete battle"}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -607,6 +783,67 @@ const AdminDashboard = () => {
                   </form>
                 </DialogContent>
               </Dialog>
+
+              {/* Edit Contest Dialog */}
+              <Dialog open={editContestDialogOpen} onOpenChange={setEditContestDialogOpen}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Edit Contest</DialogTitle>
+                    <DialogDescription>
+                      Update contest details and battle selection
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleUpdateContest} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="editContestName">Contest Name</Label>
+                      <Input
+                        id="editContestName"
+                        value={editContestName}
+                        onChange={(e) => setEditContestName(e.target.value)}
+                        placeholder="Enter contest name"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <Label>Select Battles ({editSelectedBattleIds.length} selected)</Label>
+                      <div className="max-h-60 overflow-y-auto border rounded-md p-3 space-y-2">
+                        {battles.filter(battle => battle.isPublished).map((battle) => (
+                          <div key={battle.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`edit-battle-${battle.id}`}
+                              checked={editSelectedBattleIds.includes(battle.id)}
+                              onCheckedChange={(checked) => 
+                                handleEditBattleSelection(battle.id, checked as boolean)
+                              }
+                            />
+                            <Label 
+                              htmlFor={`edit-battle-${battle.id}`}
+                              className="flex-1 cursor-pointer"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">{battle.name}</span>
+                                <span className="text-sm text-muted-foreground">
+                                  {battle.code}
+                                </span>
+                              </div>
+                            </Label>
+                          </div>
+                        ))}
+                        {battles.filter(battle => battle.isPublished).length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            No published battles available
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <Button type="submit" className="w-full" disabled={editSelectedBattleIds.length === 0}>
+                      Update Contest
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </div>
           </CardHeader>
           <CardContent>
@@ -658,6 +895,13 @@ const AdminDashboard = () => {
                             </Button>
                             <Button
                               size="sm"
+                              variant="outline"
+                              onClick={() => handleEditContest(contest)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
                               variant="destructive"
                               onClick={() => handleDeleteContest(contest.id, contest.name)}
                             >
@@ -678,12 +922,21 @@ const AdminDashboard = () => {
         <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Edit Permissions</DialogTitle>
+              <DialogTitle>Edit User Profile</DialogTitle>
               <DialogDescription>
-                Update permissions for {editingUser?.userId}
+                Update user profile for {editingUser?.userId}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="editDisplayName">Display Name</Label>
+                <Input
+                  id="editDisplayName"
+                  value={editDisplayName}
+                  onChange={(e) => setEditDisplayName(e.target.value)}
+                  placeholder="Enter display name"
+                />
+              </div>
               <div className="space-y-3">
                 <Label>Permissions</Label>
                 <div className="space-y-2">
@@ -729,8 +982,8 @@ const AdminDashboard = () => {
                   </div>
                 </div>
               </div>
-              <Button onClick={handleUpdatePermissions} className="w-full">
-                Update Permissions
+              <Button onClick={handleUpdateUserProfile} className="w-full">
+                Update User
               </Button>
             </div>
           </DialogContent>
