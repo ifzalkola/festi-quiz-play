@@ -61,7 +61,7 @@ A real-time multiplayer quiz application built with React, TypeScript, and Fireb
    ```json
    {
      "uid": "YOUR_COPIED_UID_HERE",
-     "userId": "ifzalkola",
+     "userId": "userId",
      "email": "admin@quiz.app",
      "role": "admin",
      "permissions": {
@@ -81,10 +81,6 @@ A real-time multiplayer quiz application built with React, TypeScript, and Fireb
    
    Open [http://localhost:8080](http://localhost:8080)
 
-6. **First Login:**
-   - User ID: `ifzalkola`
-   - Password: `admin123`
-   - ⚠️ Change password after first login!
 
 ## 🎮 How to Use
 

@@ -20,7 +20,6 @@ const PlayQuiz = () => {
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [timerStarted, setTimerStarted] = useState<Date | null>(null);
   const [randomizedOptions, setRandomizedOptions] = useState<string[]>([]);
-  const [optionMapping, setOptionMapping] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     const storedPlayerId = localStorage.getItem('current_player_id');
@@ -66,26 +65,15 @@ const PlayQuiz = () => {
       if (currentQuestion.question.type === 'multiple-choice' && currentQuestion.question.options) {
         const options = [...currentQuestion.question.options];
         
-        // Create a mapping from randomized position to original option
-        const mapping = new Map<string, string>();
-        
-        // Shuffle the options array
+        // Shuffle the options array (Fisher-Yates shuffle)
         for (let i = options.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [options[i], options[j]] = [options[j], options[i]];
         }
         
-        // Create mapping: randomized option -> original option
-        options.forEach((randomizedOption, index) => {
-          const originalOption = currentQuestion.question.options![index];
-          mapping.set(randomizedOption, originalOption);
-        });
-        
         setRandomizedOptions(options);
-        setOptionMapping(mapping);
       } else {
         setRandomizedOptions([]);
-        setOptionMapping(new Map());
       }
     }
   }, [currentQuestion?.question.id]);
@@ -178,15 +166,7 @@ const PlayQuiz = () => {
       return;
     }
 
-    let answer = currentQuestion?.question?.type === 'text-input' ? textAnswer : selectedAnswer;
-    
-    // For multiple choice questions, map randomized answer back to original answer
-    if (currentQuestion?.question?.type === 'multiple-choice' && answer) {
-      const originalAnswer = optionMapping.get(answer);
-      if (originalAnswer) {
-        answer = originalAnswer;
-      }
-    }
+    const answer = currentQuestion?.question?.type === 'text-input' ? textAnswer : selectedAnswer;
     
     if (!answer.trim()) {
       toast.error('Please select or enter an answer');

@@ -66,41 +66,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize default admin user
-  const initializeDefaultAdmin = async () => {
-    try {
-      const usersRef = ref(database, 'users');
-      const snapshot = await get(usersRef);
-      
-      // Check if any users exist
-      if (!snapshot.exists()) {
-        console.log('No users found. Creating default admin...');
-        
-        // Create default admin in auth and database
-        // Note: This should be done through Firebase Admin SDK in production
-        // For now, we'll just create the user entry in database
-        const defaultAdminRef = ref(database, 'users/ifzalkola');
-        await set(defaultAdminRef, {
-          uid: 'admin_default', // This would be the Firebase Auth UID
-          userId: 'ifzalkola',
-          email: 'admin@quiz.app',
-          role: 'admin',
-          permissions: defaultPermissions,
-          createdAt: new Date().toISOString(),
-          // In production, you should set this up through Firebase console or Admin SDK
-          // For local development, the password should be: admin123
-        });
-        
-        console.log('Default admin user created with userId: ifzalkola');
-      }
-    } catch (error) {
-      console.error('Error initializing default admin:', error);
-    }
-  };
 
   useEffect(() => {
-    initializeDefaultAdmin();
-
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setFirebaseUser(firebaseUser);
       
@@ -273,10 +240,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const deleteUser = async (userId: string) => {
     if (!currentUser || currentUser.role !== 'admin') {
       throw new Error('Only admins can delete users');
-    }
-
-    if (userId === 'ifzalkola') {
-      throw new Error('Cannot delete the default admin user');
     }
 
     try {
