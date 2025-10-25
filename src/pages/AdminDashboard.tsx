@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth, AppUser, Permission, UserRole } from '@/contexts/AuthContext';
-import { useQuiz, QuizRoom } from '@/contexts/QuizContext';
+import { useQuiz, QuizBattle, Contest } from '@/contexts/QuizContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,19 +11,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, UserPlus, Shield, Trash2, Edit, Users, Home, Eye, Play } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, UserPlus, Shield, Trash2, Edit, Users, Home, Eye, Play, Trophy, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 const AdminDashboard = () => {
   const { currentUser, isAdmin, getAllUsers, createUser, updateUserPermissions, deleteUser, signOut } = useAuth();
-  const { getAllRooms, deleteRoom } = useQuiz();
+  const { getAllBattles, deleteBattle, getAllContests, createContest, deleteContest } = useQuiz();
   const [users, setUsers] = useState<AppUser[]>([]);
-  const [rooms, setRooms] = useState<QuizRoom[]>([]);
+  const [battles, setBattles] = useState<QuizBattle[]>([]);
+  const [contests, setContests] = useState<Contest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [roomsLoading, setRoomsLoading] = useState(true);
+  const [battlesLoading, setBattlesLoading] = useState(true);
+  const [contestsLoading, setContestsLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createContestDialogOpen, setCreateContestDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const navigate = useNavigate();
 
@@ -33,19 +37,23 @@ const AdminDashboard = () => {
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState<UserRole>('user');
   const [newPermissions, setNewPermissions] = useState<Permission>({
-    canCreateRooms: true,
-    canJoinRooms: true,
+    canCreateBattles: true,
+    canJoinBattles: true,
     canManageUsers: false,
-    canDeleteRooms: false,
+    canDeleteBattles: false,
   });
 
   // Edit permissions state
   const [editPermissions, setEditPermissions] = useState<Permission>({
-    canCreateRooms: true,
-    canJoinRooms: true,
+    canCreateBattles: true,
+    canJoinBattles: true,
     canManageUsers: false,
-    canDeleteRooms: false,
+    canDeleteBattles: false,
   });
+
+  // Create contest form state
+  const [newContestName, setNewContestName] = useState('');
+  const [selectedBattleIds, setSelectedBattleIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isAdmin()) {
@@ -53,7 +61,8 @@ const AdminDashboard = () => {
       return;
     }
     loadUsers();
-    loadRooms();
+    loadBattles();
+    loadContests();
   }, [isAdmin, navigate]);
 
   const loadUsers = async () => {
@@ -68,38 +77,50 @@ const AdminDashboard = () => {
     }
   };
 
-  const loadRooms = async () => {
+  const loadBattles = async () => {
     try {
-      setRoomsLoading(true);
-      const allRooms = await getAllRooms();
-      setRooms(allRooms);
+      setBattlesLoading(true);
+      const allBattles = await getAllBattles();
+      setBattles(allBattles);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to load rooms');
+      toast.error(error.message || 'Failed to load battles');
     } finally {
-      setRoomsLoading(false);
+      setBattlesLoading(false);
     }
   };
 
-  const handleDeleteRoom = async (roomId: string, roomName: string) => {
-    if (!confirm(`Are you sure you want to delete "${roomName}"? This action cannot be undone.`)) {
+  const loadContests = async () => {
+    try {
+      setContestsLoading(true);
+      const allContests = await getAllContests();
+      setContests(allContests);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to load contests');
+    } finally {
+      setContestsLoading(false);
+    }
+  };
+
+  const handleDeleteBattle = async (battleId: string, battleName: string) => {
+    if (!confirm(`Are you sure you want to delete "${battleName}"? This action cannot be undone.`)) {
       return;
     }
     
     try {
-      await deleteRoom(roomId);
-      toast.success('Room deleted successfully!');
-      loadRooms();
+      await deleteBattle(battleId);
+      toast.success('Battle deleted successfully!');
+      loadBattles();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete room');
+      toast.error(error.message || 'Failed to delete battle');
     }
   };
 
-  const getRoomStatusBadge = (room: QuizRoom) => {
-    if (room.isCompleted) {
+  const getBattleStatusBadge = (battle: QuizBattle) => {
+    if (battle.isCompleted) {
       return <Badge variant="secondary">Completed</Badge>;
-    } else if (room.isStarted) {
+    } else if (battle.isStarted) {
       return <Badge variant="destructive">In Progress</Badge>;
-    } else if (room.isPublished) {
+    } else if (battle.isPublished) {
       return <Badge variant="default">Published</Badge>;
     } else {
       return <Badge variant="outline">Draft</Badge>;
@@ -120,10 +141,10 @@ const AdminDashboard = () => {
       setNewPassword('');
       setNewRole('user');
       setNewPermissions({
-        canCreateRooms: true,
-        canJoinRooms: true,
+        canCreateBattles: true,
+        canJoinBattles: true,
         canManageUsers: false,
-        canDeleteRooms: true,
+        canDeleteBattles: true,
       });
       setCreateDialogOpen(false);
       
@@ -160,6 +181,56 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleCreateContest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newContestName.trim()) {
+      toast.error('Please enter a contest name');
+      return;
+    }
+    
+    if (selectedBattleIds.length === 0) {
+      toast.error('Please select at least one battle');
+      return;
+    }
+    
+    try {
+      const contestId = await createContest(newContestName.trim(), selectedBattleIds);
+      toast.success(`Contest "${newContestName}" created successfully!`);
+      
+      // Reset form
+      setNewContestName('');
+      setSelectedBattleIds([]);
+      setCreateContestDialogOpen(false);
+      
+      loadContests();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create contest');
+    }
+  };
+
+  const handleDeleteContest = async (contestId: string, contestName: string) => {
+    if (!confirm(`Are you sure you want to delete "${contestName}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      await deleteContest(contestId);
+      toast.success('Contest deleted successfully!');
+      loadContests();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete contest');
+    }
+  };
+
+  const handleBattleSelection = (battleId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedBattleIds([...selectedBattleIds, battleId]);
+    } else {
+      setSelectedBattleIds(selectedBattleIds.filter(id => id !== battleId));
+    }
+  };
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -186,8 +257,8 @@ const AdminDashboard = () => {
                   <CardTitle className="text-2xl">{isAdmin() ? 'Admin Dashboard' : 'My Dashboard'}</CardTitle>
                   <CardDescription>
                     {isAdmin() 
-                      ? 'Manage users, permissions, and quiz rooms' 
-                      : 'Manage your quiz rooms and view your activity'
+                      ? 'Manage users, permissions, and quiz battles' 
+                      : 'Manage your quiz battles and view your activity'
                     }
                   </CardDescription>
                 </div>
@@ -323,10 +394,10 @@ const AdminDashboard = () => {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1 flex-wrap">
-                              {user.permissions.canCreateRooms && <Badge variant="outline" className="text-xs">Create</Badge>}
-                              {user.permissions.canJoinRooms && <Badge variant="outline" className="text-xs">Join</Badge>}
+                              {user.permissions.canCreateBattles && <Badge variant="outline" className="text-xs">Create</Badge>}
+                              {user.permissions.canJoinBattles && <Badge variant="outline" className="text-xs">Join</Badge>}
                               {user.permissions.canManageUsers && <Badge variant="outline" className="text-xs">Manage</Badge>}
-                              {user.permissions.canDeleteRooms && <Badge variant="outline" className="text-xs">Delete</Badge>}
+                              {user.permissions.canDeleteBattles && <Badge variant="outline" className="text-xs">Delete</Badge>}
                             </div>
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
@@ -368,37 +439,37 @@ const AdminDashboard = () => {
           </Card>
         )}
 
-        {/* Rooms Management */}
+        {/* Battles Management */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Home className="h-5 w-5" />
                 <CardTitle>
-                  {isAdmin() ? `Quiz Rooms (${rooms.length})` : `My Quiz Rooms (${rooms.length})`}
+                  {isAdmin() ? `Quiz Battles (${battles.length})` : `My Quiz Battles (${battles.length})`}
                 </CardTitle>
               </div>
               <Button onClick={() => navigate('/create')}>
                 <UserPlus className="mr-2 h-4 w-4" />
-                Create Room
+                Create Battle
               </Button>
             </div>
           </CardHeader>
           <CardContent>
-            {roomsLoading ? (
+            {battlesLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
               </div>
-            ) : rooms.length === 0 ? (
+            ) : battles.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                {isAdmin() ? 'No rooms found' : 'You haven\'t created any rooms yet'}
+                {isAdmin() ? 'No battles found' : 'You haven\'t created any battles yet'}
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Room Name</TableHead>
+                      <TableHead>Battle Name</TableHead>
                       <TableHead>Code</TableHead>
                       {isAdmin() && <TableHead>Owner</TableHead>}
                       <TableHead>Status</TableHead>
@@ -409,39 +480,39 @@ const AdminDashboard = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rooms.map((room) => (
-                      <TableRow key={room.id}>
-                        <TableCell className="font-medium">{room.name}</TableCell>
-                        <TableCell className="font-mono">{room.code}</TableCell>
-                        {isAdmin() && <TableCell>{room.ownerName}</TableCell>}
-                        <TableCell>{getRoomStatusBadge(room)}</TableCell>
-                        <TableCell>{room.questions ? room.questions.length : 0}</TableCell>
-                        <TableCell>{room.maxPlayers}</TableCell>
+                    {battles.map((battle) => (
+                      <TableRow key={battle.id}>
+                        <TableCell className="font-medium">{battle.name}</TableCell>
+                        <TableCell className="font-mono">{battle.code}</TableCell>
+                        {isAdmin() && <TableCell>{battle.ownerName}</TableCell>}
+                        <TableCell>{getBattleStatusBadge(battle)}</TableCell>
+                        <TableCell>{battle.questions ? battle.questions.length : 0}</TableCell>
+                        <TableCell>{battle.maxPlayers}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {room.createdAt.toLocaleDateString()}
+                          {battle.createdAt.toLocaleDateString()}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => navigate(`/edit-room/${room.id}`)}
+                              onClick={() => navigate(`/edit-battle/${battle.id}`)}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => navigate(`/room/${room.id}`)}
+                              onClick={() => navigate(`/battle/${battle.id}`)}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {room.questions && room.questions.length > 0 && (
+                            {battle.questions && battle.questions.length > 0 && (
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => navigate(`/room/${room.id}/control`)}
-                                disabled={room.isStarted}
+                                onClick={() => navigate(`/battle/${battle.id}/control`)}
+                                disabled={battle.isStarted}
                               >
                                 <Play className="h-4 w-4" />
                               </Button>
@@ -449,7 +520,146 @@ const AdminDashboard = () => {
                             <Button
                               size="sm"
                               variant="destructive"
-                              onClick={() => handleDeleteRoom(room.id, room.name)}
+                              onClick={() => handleDeleteBattle(battle.id, battle.name)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Contest Management */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-5 w-5" />
+                <CardTitle>Contests ({contests.length})</CardTitle>
+              </div>
+              <Dialog open={createContestDialogOpen} onOpenChange={setCreateContestDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Contest
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Create New Contest</DialogTitle>
+                    <DialogDescription>
+                      Create a contest that combines multiple quiz battles into a single leaderboard.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleCreateContest} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="contestName">Contest Name *</Label>
+                      <Input
+                        id="contestName"
+                        value={newContestName}
+                        onChange={(e) => setNewContestName(e.target.value)}
+                        placeholder="e.g., Weekly Quiz Championship"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Select Battles *</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Choose published battles to include in this contest
+                      </p>
+                      <div className="max-h-60 overflow-y-auto border rounded-lg p-4 space-y-2">
+                        {battles.filter(battle => battle.isPublished).map((battle) => (
+                          <div key={battle.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`battle-${battle.id}`}
+                              checked={selectedBattleIds.includes(battle.id)}
+                              onCheckedChange={(checked) => handleBattleSelection(battle.id, checked as boolean)}
+                            />
+                            <Label htmlFor={`battle-${battle.id}`} className="flex-1 cursor-pointer">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">{battle.name}</span>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <span className="font-mono">{battle.code}</span>
+                                  <Badge variant="outline">{battle.questions?.length || 0} questions</Badge>
+                                </div>
+                              </div>
+                            </Label>
+                          </div>
+                        ))}
+                        {battles.filter(battle => battle.isPublished).length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            No published battles available. Create and publish some battles first.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <Button type="submit" className="w-full" disabled={selectedBattleIds.length === 0}>
+                      Create Contest
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {contestsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              </div>
+            ) : contests.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No contests created yet
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Contest Name</TableHead>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Battles</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {contests.map((contest) => (
+                      <TableRow key={contest.id}>
+                        <TableCell className="font-medium">{contest.name}</TableCell>
+                        <TableCell className="font-mono">{contest.code}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{contest.battleIds.length} battles</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={contest.isActive ? "default" : "secondary"}>
+                            {contest.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {contest.createdAt.toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => navigate(`/contest/${contest.id}`)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteContest(contest.id, contest.name)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -478,22 +688,22 @@ const AdminDashboard = () => {
                 <Label>Permissions</Label>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="edit-canCreateRooms" className="font-normal">Can Create Rooms</Label>
+                    <Label htmlFor="edit-canCreateBattles" className="font-normal">Can Create Battles</Label>
                     <Switch
-                      id="edit-canCreateRooms"
-                      checked={editPermissions.canCreateRooms}
+                      id="edit-canCreateBattles"
+                      checked={editPermissions.canCreateBattles}
                       onCheckedChange={(checked) => 
-                        setEditPermissions({ ...editPermissions, canCreateRooms: checked })
+                        setEditPermissions({ ...editPermissions, canCreateBattles: checked })
                       }
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="edit-canJoinRooms" className="font-normal">Can Join Rooms</Label>
+                    <Label htmlFor="edit-canJoinBattles" className="font-normal">Can Join Battles</Label>
                     <Switch
-                      id="edit-canJoinRooms"
-                      checked={editPermissions.canJoinRooms}
+                      id="edit-canJoinBattles"
+                      checked={editPermissions.canJoinBattles}
                       onCheckedChange={(checked) => 
-                        setEditPermissions({ ...editPermissions, canJoinRooms: checked })
+                        setEditPermissions({ ...editPermissions, canJoinBattles: checked })
                       }
                     />
                   </div>
@@ -508,12 +718,12 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="edit-canDeleteRooms" className="font-normal">Can Delete Rooms</Label>
+                    <Label htmlFor="edit-canDeleteBattles" className="font-normal">Can Delete Battles</Label>
                     <Switch
-                      id="edit-canDeleteRooms"
-                      checked={editPermissions.canDeleteRooms}
+                      id="edit-canDeleteBattles"
+                      checked={editPermissions.canDeleteBattles}
                       onCheckedChange={(checked) => 
-                        setEditPermissions({ ...editPermissions, canDeleteRooms: checked })
+                        setEditPermissions({ ...editPermissions, canDeleteBattles: checked })
                       }
                     />
                   </div>

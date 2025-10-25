@@ -10,24 +10,24 @@ import { useQuiz } from '@/contexts/QuizContext';
 import { ArrowLeft, Users, RefreshCw, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-const JoinRoom = () => {
+const JoinBattle = () => {
   const navigate = useNavigate();
-  const { joinRoom, canRejoinRoom } = useQuiz();
-  const [roomCode, setRoomCode] = useState('');
+  const { joinBattle, canRejoinBattle } = useQuiz();
+  const [battleCode, setBattleCode] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [rejoinInfo, setRejoinInfo] = useState<{ canRejoin: boolean; playerName?: string; message?: string } | null>(null);
   const [isCheckingRejoin, setIsCheckingRejoin] = useState(false);
 
   const handleCheckRejoin = async () => {
-    if (!roomCode.trim()) {
-      toast.error('Please enter a room code');
+    if (!battleCode.trim()) {
+      toast.error('Please enter a battle code');
       return;
     }
 
     setIsCheckingRejoin(true);
     try {
-      const result = await canRejoinRoom(roomCode.toUpperCase());
+      const result = await canRejoinBattle(battleCode.toUpperCase());
       setRejoinInfo(result);
       if (result.canRejoin && result.playerName) {
         setPlayerName(result.playerName);
@@ -40,25 +40,25 @@ const JoinRoom = () => {
     }
   };
 
-  const handleJoinRoom = async (e: React.FormEvent) => {
+  const handleJoinBattle = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!roomCode.trim() || !playerName.trim()) {
+    if (!battleCode.trim() || !playerName.trim()) {
       toast.error('Please fill in all fields');
       return;
     }
 
     setIsLoading(true);
     try {
-      await joinRoom(roomCode.toUpperCase(), playerName);
+      await joinBattle(battleCode.toUpperCase(), playerName);
       if (rejoinInfo?.canRejoin) {
-        toast.success('Rejoined room successfully! Your progress has been restored.');
+        toast.success('Rejoined battle successfully! Your progress has been restored.');
       } else {
-        toast.success('Joined room successfully!');
+        toast.success('Joined battle successfully!');
       }
       navigate(`/lobby`);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to join room';
+      const errorMessage = error instanceof Error ? error.message : 'Failed to join battle';
       toast.error(errorMessage);
       console.error(error);
     } finally {
@@ -83,24 +83,24 @@ const JoinRoom = () => {
             <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mb-4">
               <Users className="w-8 h-8 text-primary-foreground" />
             </div>
-            <CardTitle className="text-3xl">Join Quiz Room</CardTitle>
+            <CardTitle className="text-3xl">Join Quiz Battle</CardTitle>
             <CardDescription>
-              Enter the room code shared by your quiz host
+              Enter the battle code shared by your quiz host
             </CardDescription>
           </CardHeader>
 
           <CardContent>
-            <form onSubmit={handleJoinRoom} className="space-y-6">
+            <form onSubmit={handleJoinBattle} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="roomCode">Room Code</Label>
+                <Label htmlFor="battleCode">Battle Code</Label>
                 <div className="flex gap-2">
                   <Input
-                    id="roomCode"
+                    id="battleCode"
                     placeholder="ABC123"
-                    value={roomCode}
+                    value={battleCode}
                     onChange={(e) => {
-                      setRoomCode(e.target.value.toUpperCase());
-                      setRejoinInfo(null); // Clear rejoin info when room code changes
+                      setBattleCode(e.target.value.toUpperCase());
+                      setRejoinInfo(null); // Clear rejoin info when battle code changes
                     }}
                     maxLength={6}
                     className="text-center text-2xl tracking-widest font-mono flex-1"
@@ -109,7 +109,7 @@ const JoinRoom = () => {
                     type="button"
                     variant="outline"
                     onClick={handleCheckRejoin}
-                    disabled={isCheckingRejoin || !roomCode.trim()}
+                    disabled={isCheckingRejoin || !battleCode.trim()}
                     className="px-4"
                   >
                     {isCheckingRejoin ? (
@@ -163,7 +163,7 @@ const JoinRoom = () => {
               >
                 {isLoading 
                   ? (rejoinInfo?.canRejoin ? 'Rejoining...' : 'Joining...') 
-                  : (rejoinInfo?.canRejoin ? 'Rejoin Room' : 'Join Room')
+                  : (rejoinInfo?.canRejoin ? 'Rejoin Battle' : 'Join Battle')
                 }
               </Button>
             </form>
@@ -174,4 +174,4 @@ const JoinRoom = () => {
   );
 };
 
-export default JoinRoom;
+export default JoinBattle;

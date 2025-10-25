@@ -22,11 +22,11 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 const Index = () => {
   const navigate = useNavigate();
   const { currentUser, isAdmin, signOut } = useAuth();
-  const { clearRoomState } = useQuiz();
+  const { clearBattleState } = useQuiz();
   
-  // Clear any existing room state when landing on the home page
+  // Clear any existing battle state when landing on the home page
   useEffect(() => {
-    clearRoomState();
+    clearBattleState(); 
   }, []);
   
   const handleSignOut = async () => {
@@ -90,17 +90,21 @@ const Index = () => {
             </h1>
             
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Create engaging quiz rooms, invite players, and compete in real-time. 
+              Create engaging quiz battles, invite players, and compete in real-time. 
               Perfect for education, team building, or just having fun!
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
               <Button size="lg" variant="hero" className="group shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all duration-300" onClick={() => navigate('/create')}>
                 <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                Create a Quiz Room
+                Create a Quiz Battle
               </Button>
               <Button size="lg" variant="outline" className="group hover:shadow-lg hover:shadow-primary/10 transition-all duration-300" onClick={() => navigate('/join')}>
                 Join with Code
+              </Button>
+              <Button size="lg" variant="outline" className="group hover:shadow-lg hover:shadow-primary/10 transition-all duration-300" onClick={() => navigate('/join-contest')}>
+                <Trophy className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                Join Contest
               </Button>
               <Button size="lg" variant="secondary" className="group hover:shadow-lg hover:shadow-secondary/10 transition-all duration-300" onClick={() => navigate('/how-to-play')}>
                 <Target className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
@@ -132,7 +136,7 @@ const Index = () => {
             <FeatureCard
               icon={<Users className="w-8 h-8" />}
               title="Multiplayer Support"
-              description="Host quiz rooms with up to 100+ concurrent players. Perfect for large events!"
+              description="Host quiz battles with up to 100+ concurrent players. Perfect for large events!"
             />
             <FeatureCard
               icon={<Trophy className="w-8 h-8" />}
@@ -152,7 +156,7 @@ const Index = () => {
             <FeatureCard
               icon={<Crown className="w-8 h-8" />}
               title="Easy Management"
-              description="Intuitive dashboard for hosts to create, edit, and manage quiz rooms effortlessly"
+              description="Intuitive dashboard for hosts to create, edit, and manage quiz battles effortlessly"
             />
           </div>
         </div>
@@ -174,9 +178,9 @@ const Index = () => {
           <div className="grid md:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-700">
             <RoleCard
               title="Quiz Hosts"
-              description="Create custom quiz rooms, upload questions via CSV, configure scoring rules, and control the entire game flow"
+              description="Create custom quiz battles, upload questions via CSV, configure scoring rules, and control the entire game flow"
               features={[
-                "Easy room setup",
+                "Easy battle setup",
                 "CSV import support",
                 "Live control panel",
                 "Custom scoring rules"
@@ -196,10 +200,10 @@ const Index = () => {
             />
             <RoleCard
               title="Admins"
-              description="Oversee all quiz rooms, manage users, moderate games, and ensure everything runs smoothly"
+              description="Oversee all quiz battles, manage users, moderate games, and ensure everything runs smoothly"
               features={[
                 "Full oversight",
-                "Room management",
+                "Battle management",
                 "User moderation",
                 "Analytics dashboard"
               ]}
@@ -218,7 +222,7 @@ const Index = () => {
               Ready to Get Started?
             </h2>
             <p className="text-xl text-muted-foreground">
-              Create your first quiz room in seconds and invite your friends to join the fun
+              Create your first quiz battle in seconds and invite your friends to join the fun
             </p>
           </div>
           

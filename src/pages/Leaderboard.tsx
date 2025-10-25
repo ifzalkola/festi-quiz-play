@@ -12,21 +12,21 @@ import RoundStatistics from '@/components/quiz/RoundStatistics';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 const Leaderboard = () => {
-  const { roomId } = useParams();
+  const { battleId } = useParams();
   const navigate = useNavigate();
-  const { currentRoom, players, roundStatistics, hideLeaderboard, loadRoom, updateRevealedRounds } = useQuiz();
+  const { currentBattle, players, roundStatistics, hideLeaderboard, loadBattle, updateRevealedRounds } = useQuiz();
   const { currentUser, hasPermission } = useAuth();
   const [hasAnimated, setHasAnimated] = useState(false);
   const [playerPositions, setPlayerPositions] = useState<Map<string, number>>(new Map());
   const [previousPositions, setPreviousPositions] = useState<Map<string, number>>(new Map());
   const playerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  // Load the room when component mounts
+  // Load the battle when component mounts
   useEffect(() => {
-    if (roomId) {
-      loadRoom(roomId);
+    if (battleId) {
+      loadBattle(battleId);
     }
-  }, [roomId, loadRoom]);
+  }, [battleId, loadBattle]);
 
   // Handle smooth position animations
   useEffect(() => {
@@ -66,18 +66,18 @@ const Leaderboard = () => {
   }, [playerPositions]);
 
   // Check if this is a mid-quiz leaderboard or final leaderboard
-  const isFinalLeaderboard = currentRoom?.isCompleted && currentRoom?.showFinalResults;
-  const isMidQuiz = !isFinalLeaderboard && currentRoom?.isStarted;
+  const isFinalLeaderboard = currentBattle?.isCompleted && currentBattle?.showFinalResults;
+  const isMidQuiz = !isFinalLeaderboard && currentBattle?.isStarted;
 
-  // Check if current user is the room owner or admin
-  const isRoomOwner = currentRoom?.ownerId === currentUser?.userId;
+  // Check if current user is the battle owner or admin
+  const isBattleOwner = currentBattle?.ownerId === currentUser?.userId;
   const isAdmin = hasPermission('canManageUsers');
-  const canControlQuiz = isRoomOwner || isAdmin;
+  const canControlQuiz = isBattleOwner || isAdmin;
 
   // Auto-redirect players when leaderboard is hidden (host goes back to control)
   useEffect(() => {
     // Only redirect players (not hosts) when leaderboard is hidden during mid-quiz
-    if (!currentRoom?.showLeaderboard && currentRoom?.isStarted && !currentRoom?.isCompleted && !canControlQuiz) {
+    if (!currentBattle?.showLeaderboard && currentBattle?.isStarted && !currentBattle?.isCompleted && !canControlQuiz) {
       // Determine where to redirect based on current player state
       const currentPlayerId = localStorage.getItem('current_player_id');
       const currentPlayer = players?.find(p => p?.id === currentPlayerId);
@@ -90,7 +90,7 @@ const Leaderboard = () => {
         navigate('/lobby');
       }
     }
-  }, [currentRoom, players, canControlQuiz, navigate]);
+  }, [currentBattle, players, canControlQuiz, navigate]);
 
   useEffect(() => {
     if (!hasAnimated && players.length > 0 && isFinalLeaderboard) {
@@ -108,7 +108,7 @@ const Leaderboard = () => {
 
   // Special animation when all rounds are revealed
   useEffect(() => {
-    if (isFinalLeaderboard && currentRoom?.revealedRounds === currentRoom?.questions.length && !hasAnimated) {
+    if (isFinalLeaderboard && currentBattle?.revealedRounds === currentBattle?.questions.length && !hasAnimated) {
       // Trigger special confetti when all rounds are revealed
       setTimeout(() => {
         confetti({
@@ -120,14 +120,14 @@ const Leaderboard = () => {
       }, 300);
       setHasAnimated(true);
     }
-  }, [isFinalLeaderboard, currentRoom?.revealedRounds, currentRoom?.questions.length, hasAnimated]);
+  }, [isFinalLeaderboard, currentBattle?.revealedRounds, currentBattle?.questions.length, hasAnimated]);
 
-  if (!currentRoom) {
+  if (!currentBattle) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card>
           <CardContent className="pt-6 text-center space-y-4">
-            <p>Room not found</p>
+            <p>Battle not found</p>
             <Button onClick={() => navigate('/')}>
               Go Home
             </Button>
@@ -139,11 +139,11 @@ const Leaderboard = () => {
 
   // Calculate cumulative points based on revealed rounds
   const calculateCumulativePoints = (player: any) => {
-    if (!isFinalLeaderboard || !currentRoom?.revealedRounds) {
+    if (!isFinalLeaderboard || !currentBattle?.revealedRounds) {
       return player.score; // Show total score for mid-quiz leaderboards
     }
     
-    const revealedRounds = currentRoom.revealedRounds;
+    const revealedRounds = currentBattle.revealedRounds;
     let cumulativeScore = 0;
     
     // Sum points from revealed rounds only
@@ -175,32 +175,32 @@ const Leaderboard = () => {
     setPlayerPositions(newPositions);
 
     return playersWithScores;
-  }, [players, currentRoom?.revealedRounds, roundStatistics]);
+  }, [players, currentBattle?.revealedRounds, roundStatistics]);
 
   const winner = sortedPlayers?.[0];
   const topThree = sortedPlayers?.slice(0, 3) || [];
   const rest = sortedPlayers?.slice(3) || [];
 
   // Filter round statistics based on revealed rounds
-  const visibleRoundStatistics = isFinalLeaderboard && currentRoom?.revealedRounds 
-    ? roundStatistics.slice(0, currentRoom.revealedRounds)
+  const visibleRoundStatistics = isFinalLeaderboard && currentBattle?.revealedRounds 
+    ? roundStatistics.slice(0, currentBattle.revealedRounds)
     : roundStatistics;
 
   // Handle slider change
   const handleSliderChange = async (value: number[]) => {
-    if (!roomId) return;
+    if (!battleId) return;
     const rounds = value[0];
     try {
-      await updateRevealedRounds(roomId, rounds);
+      await updateRevealedRounds(battleId, rounds);
     } catch (error) {
       toast.error('Failed to update revealed rounds');
     }
   };
 
   const shareResults = () => {
-    if (!currentRoom || !winner) return;
+    if (!currentBattle || !winner) return;
     
-    const text = `🎉 Quiz Results for "${currentRoom.name}"\n\n` +
+    const text = `🎉 Quiz Results for "${currentBattle.name}"\n\n` +
       `🏆 Winner: ${winner?.name} (${winner?.cumulativeScore} points)\n\n` +
       `Top 3:\n` +
       topThree.map((p, i) => `${i + 1}. ${p?.name} - ${p?.cumulativeScore} points`).join('\n');
@@ -216,26 +216,26 @@ const Leaderboard = () => {
     }
   };
 
-  const copyRoomCode = () => {
-    navigator.clipboard.writeText(currentRoom.code);
-    toast.success('Room code copied!');
+  const copyBattleCode = () => {
+    navigator.clipboard.writeText(currentBattle.code);
+    toast.success('Battle code copied!');
   };
 
   const handleBackToQuiz = async () => {
-    if (!roomId) return;
+    if (!battleId) return;
     
-    // Security check: Only room owners and admins can control the quiz
+    // Security check: Only battle owners and admins can control the quiz
     if (!canControlQuiz) {
       toast.error('You do not have permission to control this quiz');
       return;
     }
     
     try {
-      await hideLeaderboard(roomId);
-      navigate(`/room/${roomId}/control`);
+      await hideLeaderboard(battleId);
+      navigate(`/battle/${battleId}/control`);
     } catch (error) {
       toast.error('Failed to return to quiz');
-      navigate(`/room/${roomId}/control`);
+      navigate(`/battle/${battleId}/control`);
     }
   };
 
@@ -255,15 +255,15 @@ const Leaderboard = () => {
             {isFinalLeaderboard ? 'Quiz Complete! 🎉' : 'Current Rankings 📊'}
           </h1>
           <p className="text-xl text-muted-foreground">
-            {currentRoom.name}
+            {currentBattle.name}
           </p>
           {/* Show cumulative round information */}
           <p className="text-lg font-semibold text-primary">
             {isFinalLeaderboard 
-              ? currentRoom?.revealedRounds === currentRoom?.questions.length
+              ? currentBattle?.revealedRounds === currentBattle?.questions.length
                 ? 'Final Leaderboard'
-                : `Leaderboard After Round ${currentRoom?.revealedRounds || 1}`
-              : `Leaderboard After Round ${currentRoom?.currentQuestionIndex || 0}`
+                : `Leaderboard After Round ${currentBattle?.revealedRounds || 1}`
+              : `Leaderboard After Round ${currentBattle?.currentQuestionIndex || 0}`
             }
           </p>
           {/* Show message for players during mid-quiz */}
@@ -287,7 +287,7 @@ const Leaderboard = () => {
               </>
             ) : (
               <>
-                {/* Only show "Back to Quiz Control" button to room owners/admins */}
+                {/* Only show "Back to Quiz Control" button to battle owners/admins */}
                 {canControlQuiz && (
                   <Button onClick={handleBackToQuiz} variant="outline">
                     <ArrowLeft className="w-4 h-4 mr-2" />
@@ -314,22 +314,22 @@ const Leaderboard = () => {
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>Round 1</span>
                     <span className="font-medium">
-                      Round {currentRoom?.revealedRounds || 1} of {currentRoom?.questions.length || 0}
+                      Round {currentBattle?.revealedRounds || 1} of {currentBattle?.questions.length || 0}
                     </span>
                     <span>Final Results</span>
                   </div>
                   <Slider
-                    value={[currentRoom?.revealedRounds || 1]}
+                    value={[currentBattle?.revealedRounds || 1]}
                     onValueChange={handleSliderChange}
-                    max={currentRoom?.questions.length || 1}
+                    max={currentBattle?.questions.length || 1}
                     min={1}
                     step={1}
                     className="w-full"
                   />
                   <div className="text-center text-xs text-muted-foreground">
-                    {currentRoom?.revealedRounds === currentRoom?.questions.length 
+                    {currentBattle?.revealedRounds === currentBattle?.questions.length 
                       ? "🎉 All rounds revealed!" 
-                      : `Showing ${currentRoom?.revealedRounds || 1} round${(currentRoom?.revealedRounds || 1) > 1 ? 's' : ''}`}
+                      : `Showing ${currentBattle?.revealedRounds || 1} round${(currentBattle?.revealedRounds || 1) > 1 ? 's' : ''}`}
                   </div>
                 </div>
               </div>
@@ -338,7 +338,7 @@ const Leaderboard = () => {
         )}
 
         {/* Winner Spotlight - Only show when all rounds are revealed */}
-        {winner && isFinalLeaderboard && currentRoom?.revealedRounds === currentRoom?.questions.length && (
+        {winner && isFinalLeaderboard && currentBattle?.revealedRounds === currentBattle?.questions.length && (
           <Card className="border-2 border-yellow-500 bg-gradient-to-br from-yellow-500/20 via-background to-orange-500/20 dark:from-yellow-500/30 dark:via-background dark:to-orange-500/30 animate-in zoom-in duration-700 delay-300">
             <CardContent className="pt-8 pb-8 text-center space-y-4">
               <Crown className="w-16 h-16 text-yellow-500 mx-auto animate-pulse" />
@@ -356,7 +356,7 @@ const Leaderboard = () => {
         )}
 
         {/* Top 3 Podium - Only show when all rounds are revealed */}
-        {topThree.length >= 2 && isFinalLeaderboard && currentRoom?.revealedRounds === currentRoom?.questions.length && (
+        {topThree.length >= 2 && isFinalLeaderboard && currentBattle?.revealedRounds === currentBattle?.questions.length && (
           <div className="grid grid-cols-3 gap-4 items-end animate-in fade-in slide-in-from-bottom duration-700 delay-500">
             {/* 2nd Place */}
             {topThree[1] && (
@@ -411,10 +411,10 @@ const Leaderboard = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Trophy className="w-5 h-5" />
-              {isFinalLeaderboard && currentRoom?.revealedRounds === currentRoom?.questions.length 
+              {isFinalLeaderboard && currentBattle?.revealedRounds === currentBattle?.questions.length 
                 ? 'Final Rankings' 
                 : isFinalLeaderboard 
-                  ? `Rankings After Round ${currentRoom?.revealedRounds || 1}`
+                  ? `Rankings After Round ${currentBattle?.revealedRounds || 1}`
                   : 'Current Rankings'
               }
             </CardTitle>
@@ -492,7 +492,7 @@ const Leaderboard = () => {
                 <p className="text-sm text-muted-foreground">Total Players</p>
               </div>
               <div className="text-center p-4 bg-muted rounded-lg dark:bg-muted/80 dark:border dark:border-border/50">
-                <p className="text-3xl font-bold text-primary">{currentRoom.questions?.length || 0}</p>
+                <p className="text-3xl font-bold text-primary">{currentBattle.questions?.length || 0}</p>
                 <p className="text-sm text-muted-foreground">Questions</p>
               </div>
               <div className="text-center p-4 bg-muted rounded-lg dark:bg-muted/80 dark:border dark:border-border/50">
@@ -525,7 +525,7 @@ const Leaderboard = () => {
             <CardContent className="pt-6 pb-6 text-center space-y-4">
               <h3 className="text-xl font-bold">Want to Play Again?</h3>
               <p className="text-muted-foreground">
-                Create a new quiz room or join another one with a code
+                Create a new quiz battle or join another one with a code
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button onClick={() => navigate('/create')} size="lg">
@@ -535,14 +535,14 @@ const Leaderboard = () => {
                   Join Another Quiz
                 </Button>
               </div>
-              {currentRoom?.code && (
+              {currentBattle?.code && (
                 <div className="pt-4 border-t">
                   <p className="text-sm text-muted-foreground mb-2">
-                    Share this room code with others:
+                    Share this battle code with others:
                   </p>
-                  <Button onClick={copyRoomCode} variant="outline">
+                  <Button onClick={copyBattleCode} variant="outline">
                     <Copy className="w-4 h-4 mr-2" />
-                    {currentRoom.code}
+                    {currentBattle.code}
                   </Button>
                 </div>
               )}

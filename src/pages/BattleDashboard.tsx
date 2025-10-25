@@ -10,53 +10,53 @@ import { toast } from 'sonner';
 import QuestionManager from '@/components/quiz/QuestionManager';
 import PlayerList from '@/components/quiz/PlayerList';
 
-const RoomDashboard = () => {
-  const { roomId } = useParams();
+const BattleDashboard = () => {
+  const { battleId } = useParams();
   const navigate = useNavigate();
-  const { currentRoom, players, publishRoom, startQuiz, loadRoom } = useQuiz();
+  const { currentBattle, players, publishBattle, startQuiz, loadBattle } = useQuiz();
   const { currentUser, hasPermission } = useAuth();
 
-  // Load the room when component mounts
+  // Load the battle when component mounts
   useEffect(() => {
-    if (roomId) {
-      loadRoom(roomId);
+    if (battleId) {
+      loadBattle(battleId);
     }
-  }, [roomId, loadRoom]);
+  }, [battleId, loadBattle]);
 
-  // Check if current user is the room owner or admin
-  const isRoomOwner = currentRoom?.ownerId === currentUser?.userId;
+  // Check if current user is the battle owner or admin
+  const isBattleOwner = currentBattle?.ownerId === currentUser?.userId;
   const isAdmin = hasPermission('canManageUsers');
-  const canManageRoom = isRoomOwner || isAdmin;
+  const canManageBattle = isBattleOwner || isAdmin;
 
-  const copyRoomCode = () => {
-    if (currentRoom) {
-      navigator.clipboard.writeText(currentRoom.code);
-      toast.success('Room code copied to clipboard!');
+  const copyBattleCode = () => {
+    if (currentBattle) {
+      navigator.clipboard.writeText(currentBattle.code);
+      toast.success('Battle code copied to clipboard!');
     }
   };
 
-  const handlePublishRoom = async () => {
-    if (!roomId) return;
+  const handlePublishBattle = async () => {
+    if (!battleId) return;
     try {
-      await publishRoom(roomId);
-      toast.success('Room published! Players can now join.');
+      await publishBattle(battleId);
+      toast.success('Battle published! Players can now join.');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to publish room';
+      const errorMessage = error instanceof Error ? error.message : 'Failed to publish battle';
       toast.error(errorMessage);
     }
   };
 
   const handleStartQuiz = async () => {
-    if (!roomId) return;
+    if (!battleId) return;
     if (players?.filter(p => p?.isReady)?.length === 0) {
       toast.error('Wait for at least one player to be ready');
       return;
     }
     
     try {
-      await startQuiz(roomId);
+      await startQuiz(battleId);
       toast.success('Quiz started!');
-      navigate(`/room/${roomId}/control`);
+      navigate(`/battle/${battleId}/control`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to start quiz';
       toast.error(errorMessage);
@@ -65,17 +65,17 @@ const RoomDashboard = () => {
 
   // Redirect to leaderboard when quiz is completed
   useEffect(() => {
-    if (currentRoom?.isCompleted) {
-      navigate(`/leaderboard/${roomId}`);
+    if (currentBattle?.isCompleted) {
+      navigate(`/leaderboard/${battleId}`);
     }
-  }, [currentRoom, roomId, navigate]);
+  }, [currentBattle, battleId, navigate]);
 
-  if (!currentRoom) {
+  if (!currentBattle) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card>
           <CardContent className="pt-6">
-            <p>Room not found</p>
+            <p>Battle not found</p>
             <Button onClick={() => navigate('/')} className="mt-4">
               Go Home
             </Button>
@@ -85,22 +85,22 @@ const RoomDashboard = () => {
     );
   }
 
-  // Security check: Only room owners and admins can manage the room
-  if (!canManageRoom) {
+  // Security check: Only battle owners and admins can manage the battle
+  if (!canManageBattle) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card>
           <CardContent className="pt-6 text-center space-y-4">
             <p className="text-lg font-semibold">Access Denied</p>
             <p className="text-muted-foreground">
-              You do not have permission to manage this room. Only the room owner can access room controls.
+              You do not have permission to manage this battle. Only the battle owner can access battle controls.
             </p>
             <div className="flex gap-2 justify-center">
               <Button onClick={() => navigate('/')} variant="outline">
                 Go Home
               </Button>
               <Button onClick={() => navigate('/join')}>
-                Join a Room
+                Join a Battle
               </Button>
             </div>
           </CardContent>
@@ -118,7 +118,7 @@ const RoomDashboard = () => {
             Back
           </Button>
           
-          {currentRoom.isPublished && !currentRoom.isStarted && (
+          {currentBattle.isPublished && !currentBattle.isStarted && (
             <Button 
               onClick={handleStartQuiz} 
               size="lg"
@@ -138,17 +138,17 @@ const RoomDashboard = () => {
         <div className="grid gap-6 lg:grid-cols-3 mb-6">
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle className="text-2xl">{currentRoom.name}</CardTitle>
+              <CardTitle className="text-2xl">{currentBattle.name}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                 <div>
-                  <p className="text-sm text-muted-foreground">Room Code</p>
+                  <p className="text-sm text-muted-foreground">Battle Code</p>
                   <p className="text-3xl font-mono font-bold tracking-wider">
-                    {currentRoom.code}
+                    {currentBattle.code}
                   </p>
                 </div>
-                <Button onClick={copyRoomCode} variant="outline">
+                <Button onClick={copyBattleCode} variant="outline">
                   <Copy className="w-4 h-4 mr-2" />
                   Copy
                 </Button>
@@ -157,21 +157,21 @@ const RoomDashboard = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">Questions</p>
-                  <p className="text-2xl font-bold">{currentRoom.questions?.length || 0}</p>
+                  <p className="text-2xl font-bold">{currentBattle.questions?.length || 0}</p>
                 </div>
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">Max Players</p>
-                  <p className="text-2xl font-bold">{currentRoom.maxPlayers || 0}</p>
+                  <p className="text-2xl font-bold">{currentBattle.maxPlayers || 0}</p>
                 </div>
               </div>
 
-              {!currentRoom.isPublished && (
+              {!currentBattle.isPublished && (
                 <Button 
-                  onClick={handlePublishRoom} 
+                  onClick={handlePublishBattle} 
                   className="w-full"
-                  disabled={!currentRoom.questions || currentRoom.questions.length === 0}
+                  disabled={!currentBattle.questions || currentBattle.questions.length === 0}
                 >
-                  Publish Room
+                  Publish Battle
                 </Button>
               )}
             </CardContent>
@@ -181,8 +181,8 @@ const RoomDashboard = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="w-5 h-5" />
-                Players ({players?.length || 0}/{currentRoom.maxPlayers || 0})
-                {currentRoom.isPublished && (
+                Players ({players?.length || 0}/{currentBattle.maxPlayers || 0})
+                {currentBattle.isPublished && (
                   <span className="text-sm text-muted-foreground">
                     • {players?.filter(p => p?.isReady)?.length || 0} ready
                   </span>
@@ -190,8 +190,8 @@ const RoomDashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <PlayerList players={players} showReady={currentRoom.isPublished} />
-              {currentRoom.isPublished && (
+              <PlayerList players={players} showReady={currentBattle.isPublished} />
+              {currentBattle.isPublished && (
                 <div className="mt-4 p-3 bg-muted/50 rounded-lg">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Ready Players:</span>
@@ -216,9 +216,9 @@ const RoomDashboard = () => {
           </CardHeader>
           <CardContent>
             <QuestionManager 
-              roomId={roomId!} 
-              questions={currentRoom.questions || []}
-              canEdit={!currentRoom.isStarted}
+              battleId={battleId!} 
+              questions={currentBattle.questions || []}
+              canEdit={!currentBattle.isStarted}
             />
           </CardContent>
         </Card>
@@ -227,4 +227,4 @@ const RoomDashboard = () => {
   );
 };
 
-export default RoomDashboard;
+export default BattleDashboard;

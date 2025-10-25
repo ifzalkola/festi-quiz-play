@@ -11,14 +11,16 @@ import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import Index from "./pages/Index";
 import HowToPlay from "./pages/HowToPlay";
-import CreateRoom from "./pages/CreateRoom";
-import EditRoom from "./pages/EditRoom";
-import JoinRoom from "./pages/JoinRoom";
-import RoomDashboard from "./pages/RoomDashboard";
+import CreateBattle from "./pages/CreateBattle";
+import EditBattle from "./pages/EditBattle";
+import JoinBattle from "./pages/JoinBattle";
+import BattleDashboard from "./pages/BattleDashboard";
 import PlayerLobby from "./pages/PlayerLobby";
 import QuizControl from "./pages/QuizControl";
 import PlayQuiz from "./pages/PlayQuiz";
 import Leaderboard from "./pages/Leaderboard";
+import Contest from "./pages/Contest";
+import ContestJoin from "./pages/ContestJoin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,25 +49,25 @@ const App = () => (
               <Route path="/how-to-play" element={<HowToPlay />} />
               <Route path="/create" element={
                 <ProtectedRoute>
-                  <CreateRoom />
+                  <CreateBattle />
                 </ProtectedRoute>
               } />
-              <Route path="/edit-room/:roomId" element={
+              <Route path="/edit-battle/:battleId" element={
                 <ProtectedRoute>
-                  <EditRoom />
+                  <EditBattle />
                 </ProtectedRoute>
               } />
               <Route path="/join" element={
                 <ProtectedRoute>
-                  <JoinRoom />
+                  <JoinBattle />
                 </ProtectedRoute>
               } />
-              <Route path="/room/:roomId" element={
+              <Route path="/battle/:battleId" element={
                 <ProtectedRoute>
-                  <RoomDashboard />
+                  <BattleDashboard />
                 </ProtectedRoute>
               } />
-              <Route path="/room/:roomId/control" element={
+              <Route path="/battle/:battleId/control" element={
                 <ProtectedRoute>
                   <QuizControl />
                 </ProtectedRoute>
@@ -80,9 +82,19 @@ const App = () => (
                   <PlayQuiz />
                 </ProtectedRoute>
               } />
-              <Route path="/leaderboard/:roomId" element={
+              <Route path="/leaderboard/:battleId" element={
                 <ProtectedRoute>
                   <Leaderboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/contest/:contestId" element={
+                <ProtectedRoute>
+                  <Contest />
+                </ProtectedRoute>
+              } />
+              <Route path="/join-contest" element={
+                <ProtectedRoute>
+                  <ContestJoin />
                 </ProtectedRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

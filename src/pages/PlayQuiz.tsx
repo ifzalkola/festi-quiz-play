@@ -10,7 +10,7 @@ import { Progress } from '@/components/ui/progress';
 
 const PlayQuiz = () => {
   const navigate = useNavigate();
-  const { currentRoom, currentQuestion, submitAnswer, currentUserId } = useQuiz();
+  const { currentBattle, currentQuestion, submitAnswer, currentUserId } = useQuiz();
   
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [textAnswer, setTextAnswer] = useState('');
@@ -64,36 +64,36 @@ const PlayQuiz = () => {
 
   // Redirect to leaderboard when quiz ends AND results are revealed
   useEffect(() => {
-    if (currentRoom?.isCompleted && currentRoom?.showFinalResults) {
-      const roomId = localStorage.getItem('current_room_id');
-      navigate(`/leaderboard/${roomId}`);
+    if (currentBattle?.isCompleted && currentBattle?.showFinalResults) {
+      const battleId = localStorage.getItem('current_battle_id');
+      navigate(`/leaderboard/${battleId}`);
     }
-  }, [currentRoom, navigate]);
+  }, [currentBattle, navigate]);
 
   // Redirect to leaderboard when host shows it mid-quiz
   useEffect(() => {
-    if (currentRoom?.showLeaderboard && currentRoom?.isStarted && !currentRoom?.isCompleted) {
-      const roomId = localStorage.getItem('current_room_id');
-      navigate(`/leaderboard/${roomId}`);
+    if (currentBattle?.showLeaderboard && currentBattle?.isStarted && !currentBattle?.isCompleted) {
+      const battleId = localStorage.getItem('current_battle_id');
+      navigate(`/leaderboard/${battleId}`);
     }
-  }, [currentRoom, navigate]);
+  }, [currentBattle, navigate]);
 
   // Return to quiz when leaderboard is hidden
   useEffect(() => {
-    if (!currentRoom?.showLeaderboard && currentRoom?.isStarted && !currentRoom?.isCompleted) {
+    if (!currentBattle?.showLeaderboard && currentBattle?.isStarted && !currentBattle?.isCompleted) {
       // Check if we're currently on the leaderboard page
       if (window.location.pathname.includes('/leaderboard/')) {
         navigate('/play');
       }
     }
-  }, [currentRoom, navigate]);
+  }, [currentBattle, navigate]);
 
-  if (!currentRoom) {
+  if (!currentBattle) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card>
           <CardContent className="pt-6 text-center space-y-4">
-            <p>Room not found</p>
+            <p>Battle not found</p>
             <Button onClick={() => navigate('/')}>
               Go Home
             </Button>
@@ -104,7 +104,7 @@ const PlayQuiz = () => {
   }
 
   // Show curiosity waiting screen when quiz is completed but results aren't revealed yet
-  if (currentRoom.isCompleted && !currentRoom.showFinalResults) {
+  if (currentBattle.isCompleted && !currentBattle.showFinalResults) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -196,8 +196,8 @@ const PlayQuiz = () => {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold">{currentRoom.name}</h1>
-                <p className="text-sm text-muted-foreground">Room Code: {currentRoom.code}</p>
+                <h1 className="text-2xl font-bold">{currentBattle.name}</h1>
+                <p className="text-sm text-muted-foreground">Battle Code: {currentBattle.code}</p>
               </div>
             </div>
           </CardContent>

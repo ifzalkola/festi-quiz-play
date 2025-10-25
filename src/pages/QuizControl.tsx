@@ -13,9 +13,9 @@ import PlayerList from '@/components/quiz/PlayerList';
 import { Progress } from '@/components/ui/progress';
 
 const QuizControl = () => {
-  const { roomId } = useParams();
+  const { battleId } = useParams();
   const navigate = useNavigate();
-  const { currentRoom, players, currentQuestion, answers, publishQuestion, nextQuestion, endQuiz, showLeaderboard, showFinalResults, loadRoom } = useQuiz();
+  const { currentBattle, players, currentQuestion, answers, publishQuestion, nextQuestion, endQuiz, showLeaderboard, showFinalResults, loadBattle } = useQuiz();
   const { currentUser, hasPermission } = useAuth();
   
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -26,27 +26,27 @@ const QuizControl = () => {
   const [isQuestionActive, setIsQuestionActive] = useState(false);
   const [timerStarted, setTimerStarted] = useState<Date | null>(null);
 
-  // Load the room when component mounts
+  // Load the battle when component mounts
   useEffect(() => {
-    if (roomId) {
-      loadRoom(roomId);
+    if (battleId) {
+      loadBattle(battleId);
     }
-  }, [roomId, loadRoom]);
+  }, [battleId, loadBattle]);
 
-  // Sync questionIndex with room's currentQuestionIndex
+  // Sync questionIndex with battle's currentQuestionIndex
   useEffect(() => {
-    if (currentRoom) {
+    if (currentBattle) {
       // currentQuestionIndex is 0-based, questionIndex should be 1-based for display
       // If currentQuestionIndex is -1, we're at the start, so show question 1
       // Ensure questionIndex is always at least 1
-      setQuestionIndex(Math.max(1, currentRoom.currentQuestionIndex + 1));
+      setQuestionIndex(Math.max(1, currentBattle.currentQuestionIndex + 1));
     }
-  }, [currentRoom]);
+  }, [currentBattle]);
 
-  // Check if current user is the room owner or admin
-  const isRoomOwner = currentRoom?.ownerId === currentUser?.userId;
+  // Check if current user is the battle owner or admin
+  const isBattleOwner = currentBattle?.ownerId === currentUser?.userId;
   const isAdmin = hasPermission('canManageUsers');
-  const canControlQuiz = isRoomOwner || isAdmin;
+  const canControlQuiz = isBattleOwner || isAdmin;
 
   // Timer countdown - starts when question becomes active
   useEffect(() => {
@@ -77,20 +77,20 @@ const QuizControl = () => {
   }, [isQuestionActive, currentQuestion]);
 
   useEffect(() => {
-    if (!currentRoom) return;
+    if (!currentBattle) return;
     
     // Only redirect to leaderboard if quiz is completed AND results are revealed
-    if (currentRoom.isCompleted && currentRoom.showFinalResults) {
-      navigate(`/leaderboard/${roomId}`);
+    if (currentBattle.isCompleted && currentBattle.showFinalResults) {
+      navigate(`/leaderboard/${battleId}`);
     }
-  }, [currentRoom, roomId, navigate]);
+  }, [currentBattle, battleId, navigate]);
 
-  if (!currentRoom) {
+  if (!currentBattle) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card>
           <CardContent className="pt-6">
-            <p>Room not found</p>
+            <p>Battle not found</p>
             <Button onClick={() => navigate('/')} className="mt-4">
               Go Home
             </Button>
@@ -100,7 +100,7 @@ const QuizControl = () => {
     );
   }
 
-  // Security check: Only room owners and admins can access quiz control
+  // Security check: Only battle owners and admins can access quiz control
   if (!canControlQuiz) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -108,14 +108,14 @@ const QuizControl = () => {
           <CardContent className="pt-6 text-center space-y-4">
             <p className="text-lg font-semibold">Access Denied</p>
             <p className="text-muted-foreground">
-              You do not have permission to control this quiz. Only the room owner can access quiz controls.
+              You do not have permission to control this quiz. Only the battle owner can access quiz controls.
             </p>
             <div className="flex gap-2 justify-center">
               <Button onClick={() => navigate('/')} variant="outline">
                 Go Home
               </Button>
-              <Button onClick={() => navigate(`/room/${roomId}`)}>
-                View Room
+              <Button onClick={() => navigate(`/battle/${battleId}`)}>
+                View Battle
               </Button>
             </div>
           </CardContent>
@@ -124,21 +124,21 @@ const QuizControl = () => {
     );
   }
 
-  const totalQuestions = currentRoom?.questions?.length || 0;
-  const currentQ = totalQuestions > 0 && questionIndex > 0 ? currentRoom?.questions?.[questionIndex - 1] : null;
+  const totalQuestions = currentBattle?.questions?.length || 0;
+  const currentQ = totalQuestions > 0 && questionIndex > 0 ? currentBattle?.questions?.[questionIndex - 1] : null;
   
   // Progress should show how many questions have been completed
   // If currentQuestionIndex is -1, no questions completed yet (0%)
   // If currentQuestionIndex is 0, first question completed (100/3 = 33% for 3 questions)
-  const completedQuestions = Math.max(0, (currentRoom?.currentQuestionIndex || -1) + 1);
+  const completedQuestions = Math.max(0, (currentBattle?.currentQuestionIndex || -1) + 1);
   const progress = totalQuestions > 0 ? (completedQuestions / totalQuestions) * 100 : 0;
 
 
   const handlePublishQuestion = async () => {
-    if (!roomId || !currentQ) return;
+    if (!battleId || !currentQ) return;
     
     try {
-      await publishQuestion(roomId, questionIndex - 1, basePoints, scoringMode, timeLimit);
+      await publishQuestion(battleId, questionIndex - 1, basePoints, scoringMode, timeLimit);
       setIsQuestionActive(true);
       setTimeRemaining(timeLimit);
       toast.success('Question published to all players!');
@@ -148,10 +148,10 @@ const QuizControl = () => {
   };
 
   const handleNextQuestion = async () => {
-    if (!roomId) return;
+    if (!battleId) return;
     
     setIsQuestionActive(false);
-    await nextQuestion(roomId);
+    await nextQuestion(battleId);
     
     if (questionIndex < totalQuestions) {
       setQuestionIndex(questionIndex + 1);
@@ -162,10 +162,10 @@ const QuizControl = () => {
   };
 
   const handleEndQuiz = async () => {
-    if (!roomId) return;
+    if (!battleId) return;
     
     try {
-      await endQuiz(roomId);
+      await endQuiz(battleId);
       toast.success('Quiz completed! Click "Reveal Results" to show final leaderboard to players.');
     } catch (error) {
       toast.error('Failed to end quiz');
@@ -173,23 +173,23 @@ const QuizControl = () => {
   };
 
   const handleRevealResults = async () => {
-    if (!roomId) return;
+    if (!battleId) return;
     
     try {
-      await showFinalResults(roomId);
+      await showFinalResults(battleId);
       toast.success('Final results revealed to players!');
-      navigate(`/leaderboard/${roomId}`);
+      navigate(`/leaderboard/${battleId}`);
     } catch (error) {
       toast.error('Failed to reveal results');
     }
   };
 
   const handleShowLeaderboard = async () => {
-    if (!roomId) return;
+    if (!battleId) return;
     
     try {
-      await showLeaderboard(roomId);
-      navigate(`/leaderboard/${roomId}`);
+      await showLeaderboard(battleId);
+      navigate(`/leaderboard/${battleId}`);
     } catch (error) {
       toast.error('Failed to show leaderboard to players');
     }
@@ -204,11 +204,11 @@ const QuizControl = () => {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <Button variant="ghost" onClick={() => navigate(`/room/${roomId}`)}>
+          <Button variant="ghost" onClick={() => navigate(`/battle/${battleId}`)}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
           </Button>
-          {currentRoom?.isCompleted ? (
+          {currentBattle?.isCompleted ? (
             <Button onClick={handleRevealResults} className="bg-green-600 hover:bg-green-700">
               <Trophy className="w-4 h-4 mr-2" />
               Reveal Results
@@ -431,7 +431,7 @@ const QuizControl = () => {
                     </p>
                     {totalQuestions === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        Add questions to this room to start the quiz
+                        Add questions to this battle to start the quiz
                       </p>
                     ) : (
                       <p className="text-sm text-muted-foreground">
@@ -478,15 +478,15 @@ const QuizControl = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Room Info */}
+            {/* Battle Info */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">{currentRoom.name}</CardTitle>
+                <CardTitle className="text-lg">{currentBattle.name}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Room Code:</span>
-                  <span className="font-mono font-bold">{currentRoom.code}</span>
+                  <span className="text-muted-foreground">Battle Code:</span>
+                  <span className="font-mono font-bold">{currentBattle.code}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total Questions:</span>

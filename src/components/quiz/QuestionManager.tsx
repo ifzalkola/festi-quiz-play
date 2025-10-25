@@ -10,12 +10,12 @@ import { Plus, Trash2, Edit, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface QuestionManagerProps {
-  roomId: string;
+  battleId: string;
   questions: Question[];
   canEdit: boolean;
 }
 
-const QuestionManager = ({ roomId, questions, canEdit }: QuestionManagerProps) => {
+const QuestionManager = ({ battleId, questions, canEdit }: QuestionManagerProps) => {
   const { addQuestion, updateQuestion, deleteQuestion } = useQuiz();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -45,7 +45,7 @@ const QuestionManager = ({ roomId, questions, canEdit }: QuestionManagerProps) =
     }
 
     try {
-      await addQuestion(roomId, newQuestion);
+      await addQuestion(battleId, newQuestion);
       toast.success('Question added!');
       setNewQuestion({
         text: '',
@@ -62,7 +62,7 @@ const QuestionManager = ({ roomId, questions, canEdit }: QuestionManagerProps) =
 
   const handleDeleteQuestion = async (questionId: string) => {
     try {
-      await deleteQuestion(roomId, questionId);
+      await deleteQuestion(battleId, questionId);
       toast.success('Question deleted');
     } catch (error) {
       toast.error('Failed to delete question');

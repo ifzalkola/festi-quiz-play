@@ -71,8 +71,8 @@ const HowToPlay = () => {
                   </h3>
                   <ol className="space-y-2 text-sm text-muted-foreground">
                     <li>1. Log in to your account</li>
-                    <li>2. Click "Join Room"</li>
-                    <li>3. Enter the 6-character room code</li>
+                    <li>2. Click "Join Battle"</li>
+                    <li>3. Enter the 6-character battle code</li>
                     <li>4. Enter your display name</li>
                     <li>5. Wait in the lobby for the host to start</li>
                   </ol>
@@ -81,10 +81,10 @@ const HowToPlay = () => {
                 <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 rounded-lg">
                   <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
                     <Hash className="w-5 h-5 text-purple-600" />
-                    Room Codes
+                    Battle Codes
                   </h3>
                   <p className="text-sm text-muted-foreground mb-2">
-                    Room codes are unique 6-character identifiers shared by the quiz host.
+                    Battle codes are unique 6-character identifiers shared by the quiz host.
                   </p>
                   <div className="p-2 bg-white dark:bg-gray-800 rounded border-2 border-dashed border-purple-300 text-center">
                     <span className="text-2xl font-mono font-bold text-purple-600">ABC123</span>
@@ -426,8 +426,8 @@ const HowToPlay = () => {
             <h2 className="text-2xl font-bold">Ready to Play?</h2>
             <p className="text-muted-foreground">
               {currentUser 
-                ? 'Join a quiz room and put your knowledge to the test!' 
-                : 'Log in to join a quiz room and put your knowledge to the test!'}
+                ? 'Join a quiz battle and put your knowledge to the test!' 
+                : 'Log in to join a quiz battle and put your knowledge to the test!'}
             </p>
             <div className="flex gap-4 justify-center flex-wrap">
               {currentUser ? (
@@ -438,7 +438,7 @@ const HowToPlay = () => {
                     className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
                   >
                     <Users className="w-4 h-4 mr-2" />
-                    Join a Quiz
+                    Join a Battle
                   </Button>
                   <Button 
                     onClick={() => navigate('/')} 

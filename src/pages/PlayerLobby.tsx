@@ -9,7 +9,7 @@ import PlayerList from '@/components/quiz/PlayerList';
 
 const PlayerLobby = () => {
   const navigate = useNavigate();
-  const { currentRoom, players, setPlayerReady } = useQuiz();
+  const { currentBattle, players, setPlayerReady } = useQuiz();
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [isTogglingReady, setIsTogglingReady] = useState(false);
 
@@ -23,17 +23,17 @@ const PlayerLobby = () => {
 
   useEffect(() => {
     // Listen for quiz start
-    if (currentRoom?.isStarted) {
+    if (currentBattle?.isStarted) {
       navigate('/play');
     }
     
     // Listen for quiz completion
-    if (currentRoom?.isCompleted) {
-      const roomId = localStorage.getItem('current_room_id');
-      if (roomId) {
+    if (currentBattle?.isCompleted) {
+      const battleId = localStorage.getItem('current_battle_id');
+      if (battleId) {
         // Only redirect to leaderboard if results are revealed
-        if (currentRoom.showFinalResults) {
-          navigate(`/leaderboard/${roomId}`);
+        if (currentBattle.showFinalResults) {
+          navigate(`/leaderboard/${battleId}`);
         }
         // Otherwise, stay on this page to show waiting screen
       } else {
@@ -42,21 +42,21 @@ const PlayerLobby = () => {
     }
     
     // Listen for mid-quiz leaderboard display
-    if (currentRoom?.showLeaderboard && currentRoom?.isStarted && !currentRoom?.isCompleted) {
-      const roomId = localStorage.getItem('current_room_id');
-      if (roomId) {
-        navigate(`/leaderboard/${roomId}`);
+    if (currentBattle?.showLeaderboard && currentBattle?.isStarted && !currentBattle?.isCompleted) {
+      const battleId = localStorage.getItem('current_battle_id');
+      if (battleId) {
+        navigate(`/leaderboard/${battleId}`);
       }
     }
     
     // Listen for leaderboard being hidden (return to lobby)
-    if (!currentRoom?.showLeaderboard && currentRoom?.isStarted && !currentRoom?.isCompleted) {
+    if (!currentBattle?.showLeaderboard && currentBattle?.isStarted && !currentBattle?.isCompleted) {
       // Check if we're currently on the leaderboard page
       if (window.location.pathname.includes('/leaderboard/')) {
         navigate('/lobby');
       }
     }
-  }, [currentRoom, navigate]);
+  }, [currentBattle, navigate]);
 
   const handleToggleReady = async () => {
     if (!currentPlayerId || !currentPlayer) {
@@ -76,12 +76,12 @@ const PlayerLobby = () => {
     }
   };
 
-  if (!currentRoom) {
+  if (!currentBattle) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card>
           <CardContent className="pt-6">
-            <p>Room not found</p>
+            <p>Battle not found</p>
             <Button onClick={() => navigate('/')} className="mt-4">
               Go Home
             </Button>
@@ -92,7 +92,7 @@ const PlayerLobby = () => {
   }
 
   // Show curiosity waiting screen when quiz is completed but results aren't revealed yet
-  if (currentRoom.isCompleted && !currentRoom.showFinalResults) {
+  if (currentBattle.isCompleted && !currentBattle.showFinalResults) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -135,10 +135,10 @@ const PlayerLobby = () => {
             <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mb-4">
               <Users className="w-8 h-8 text-primary-foreground" />
             </div>
-            <CardTitle className="text-3xl">{currentRoom.name}</CardTitle>
+            <CardTitle className="text-3xl">{currentBattle.name}</CardTitle>
             <div className="flex items-center justify-center gap-2 mt-4">
-              <p className="text-sm text-muted-foreground">Room Code:</p>
-              <p className="text-2xl font-mono font-bold tracking-wider">{currentRoom.code}</p>
+              <p className="text-sm text-muted-foreground">Battle Code:</p>
+              <p className="text-2xl font-mono font-bold tracking-wider">{currentBattle.code}</p>
             </div>
           </CardHeader>
         </Card>
@@ -147,7 +147,7 @@ const PlayerLobby = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Players in Lobby ({players?.length || 0}/{currentRoom.maxPlayers || 0})
+              Players in Lobby ({players?.length || 0}/{currentBattle.maxPlayers || 0})
             </CardTitle>
           </CardHeader>
           <CardContent>

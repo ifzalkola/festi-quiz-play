@@ -8,18 +8,18 @@ import { useQuiz } from '@/contexts/QuizContext';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
-const CreateRoom = () => {
+const CreateBattle = () => {
   const navigate = useNavigate();
-  const { createRoom, clearRoomState } = useQuiz();
-  const [roomName, setRoomName] = useState('');
+  const { createBattle, clearBattleState } = useQuiz();
+  const [battleName, setBattleName] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [maxPlayers, setMaxPlayers] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleCreateRoom = async (e: React.FormEvent) => {
+  const handleCreateBattle = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!roomName.trim() || !ownerName.trim()) {
+    if (!battleName.trim() || !ownerName.trim()) {
       toast.error('Please fill in all fields');
       return;
     }
@@ -31,15 +31,15 @@ const CreateRoom = () => {
 
     setIsLoading(true);
     try {
-      // Clear any existing room state to prevent redirects
-      clearRoomState();
+      // Clear any existing battle state to prevent redirects
+      clearBattleState();
       
-      const roomId = await createRoom(roomName, ownerName, maxPlayers);
-      localStorage.setItem('current_room_id', roomId);
-      toast.success('Room created successfully!');
-      navigate(`/room/${roomId}`);
+      const battleId = await createBattle(battleName, ownerName, maxPlayers);
+      localStorage.setItem('current_battle_id', battleId);
+      toast.success('Battle created successfully!');
+      navigate(`/battle/${battleId}`);
     } catch (error) {
-      toast.error('Failed to create room');
+      toast.error('Failed to create battle');
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -63,21 +63,21 @@ const CreateRoom = () => {
             <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mb-4">
               <Sparkles className="w-8 h-8 text-primary-foreground" />
             </div>
-            <CardTitle className="text-3xl">Create Quiz Room</CardTitle>
+            <CardTitle className="text-3xl">Create Quiz Battle</CardTitle>
             <CardDescription>
-              Set up your quiz room and invite players to join
+              Set up your quiz battle and invite players to join
             </CardDescription>
           </CardHeader>
 
           <CardContent>
-            <form onSubmit={handleCreateRoom} className="space-y-6">
+            <form onSubmit={handleCreateBattle} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="roomName">Room Name</Label>
+                <Label htmlFor="battleName">Battle Name</Label>
                 <Input
-                  id="roomName"
+                  id="battleName"
                   placeholder="Friday Night Quiz"
-                  value={roomName}
-                  onChange={(e) => setRoomName(e.target.value)}
+                  value={battleName}
+                  onChange={(e) => setBattleName(e.target.value)}
                   maxLength={50}
                 />
               </div>
@@ -114,7 +114,7 @@ const CreateRoom = () => {
                 size="lg"
                 disabled={isLoading}
               >
-                {isLoading ? 'Creating...' : 'Create Room'}
+                {isLoading ? 'Creating...' : 'Create Battle'}
               </Button>
             </form>
           </CardContent>
@@ -124,4 +124,4 @@ const CreateRoom = () => {
   );
 };
 
-export default CreateRoom;
+export default CreateBattle;

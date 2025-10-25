@@ -13,15 +13,15 @@ import { ref, get, set, update } from 'firebase/database';
 export type UserRole = 'admin' | 'user';
 
 export interface Permission {
-  canCreateRooms: boolean;
-  canJoinRooms: boolean;
+  canCreateBattles: boolean;
+  canJoinBattles: boolean;
   canManageUsers: boolean;
-  canDeleteRooms: boolean;
+  canDeleteBattles: boolean;
 }
 
 export interface AppUser {
   uid: string;
-  userId: string; // Custom user ID like "ifzalkola"
+  userId: string; 
   email: string;
   role: UserRole;
   permissions: Permission;
@@ -55,10 +55,10 @@ export const useAuth = () => {
 
 // All users are admin with full permissions
 const defaultPermissions: Permission = {
-  canCreateRooms: true,
-  canJoinRooms: true,
+  canCreateBattles: true,
+  canJoinBattles: true,
   canManageUsers: true,
-  canDeleteRooms: true,
+  canDeleteBattles: true,
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {

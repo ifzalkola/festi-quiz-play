@@ -7,7 +7,7 @@ A real-time multiplayer quiz application built with React, TypeScript, and Fireb
 ## ✨ Features
 
 - 🔐 **Firebase Authentication** - Secure login with role-based permissions
-- 🎮 **Real-time Multiplayer** - Host creates rooms, players join with codes
+- 🎮 **Real-time Multiplayer** - Host creates battles, players join with codes
 - 📝 **Multiple Question Types** - True/False, Multiple Choice, Text Input
 - 🏆 **Advanced Scoring** - Time-based, Order-based, and First-only modes
 - 👥 **Live Updates** - Real-time player tracking and score updates
@@ -65,10 +65,10 @@ A real-time multiplayer quiz application built with React, TypeScript, and Fireb
      "email": "admin@quiz.app",
      "role": "admin",
      "permissions": {
-       "canCreateRooms": true,
-       "canJoinRooms": true,
+       "canCreateBattles": true,
+       "canJoinBattles": true,
        "canManageUsers": true,
-       "canDeleteRooms": true
+       "canDeleteBattles": true
      },
      "createdAt": "2025-10-20T00:00:00.000Z"
    }
@@ -89,13 +89,13 @@ A real-time multiplayer quiz application built with React, TypeScript, and Fireb
 ## 🎮 How to Use
 
 ### For Quiz Hosts:
-1. Login → Create Room → Add Questions → Publish Room
-2. Share room code with players
+1. Login → Create Battle → Add Questions → Publish Battle
+2. Share battle code with players
 3. Start quiz and publish questions one by one
 4. View live answers and scores
 
 ### For Players:
-1. Login → Join Room → Enter room code
+1. Login → Join Battle → Enter Battle code
 2. Wait in lobby for quiz to start
 3. Answer questions as they appear
 4. View final results and rankings
@@ -113,9 +113,9 @@ For production, update your Realtime Database rules:
         ".write": "auth != null"
       }
     },
-    "rooms": {
+    "battles": {
       ".read": "auth != null",
-      "$roomId": {
+      "$battleId": {
         ".write": "auth != null"
       }
     },
@@ -127,19 +127,19 @@ For production, update your Realtime Database rules:
     },
     "currentQuestions": {
       ".read": "auth != null",
-      "$roomId": {
+      "$battleId": {
         ".write": "auth != null"
       }
     },
     "answers": {
       ".read": "auth != null",
-      "$roomId": {
+      "$battleId": {
         ".write": "auth != null"
       }
     },
     "roundStatistics": {
       ".read": "auth != null",
-      "$roomId": {
+      "$battleId": {
         ".write": "auth != null"
       }
     }
